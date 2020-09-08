@@ -846,23 +846,19 @@ fn insert_directory_get_id(
     }
 }
 
+// Convert to Option as a temporary workaround.
+// Box<dyn Error> won't work with par_iter.
 fn parse_ssbh(path: &Path) -> Option<ssbh_lib::Ssbh> {
     match ssbh_lib::read_ssbh(path) {
         Ok(ssbh) => Some(ssbh),
-        Err(err) => {
-            println!("Error processing {:?}: {:?}", path, err);
-            None
-        }
+        Err(_) => None
     }
 }
 
 fn parse_xmb(path: &Path) -> Option<xmb_lib::XmbFile> {
     match xmb_lib::read_xmb(path) {
         Ok(xmb) => Some(xmb),
-        Err(err) => {
-            println!("Error processing {:?}: {:?}", path, err);
-            None
-        }
+        Err(_) => None
     }
 }
 
@@ -911,13 +907,24 @@ fn write_ssbh_data(
 }
 
 fn process_files(source_folder: &Path, connection: &mut Connection) -> Result<(), Box<dyn Error>> {
+    // TODO: Additional performance gains?
+    // Parse files in parallel to improve performance.
+
+    // TODO: Can these iterators be combined?
+    let xmb_duration = Instant::now();
     let xmb_paths: Vec<_> = globwalk::GlobWalkerBuilder::from_patterns(source_folder, &["*.xmb"])
         .build()
         .unwrap()
         .into_iter()
         .filter_map(Result::ok)
         .collect();
+    let xmb_files: Vec<(&Path, Option<xmb_lib::XmbFile>)> = xmb_paths
+        .par_iter()
+        .map(|f| (f.path(), parse_xmb(f.path())))
+        .collect();       
+    println!("Parse {:?} XMB files: {:?}", xmb_files.len(), xmb_duration.elapsed());
 
+    let ssbh_duration = Instant::now();
     let ssbh_paths: Vec<_> =
         globwalk::GlobWalkerBuilder::from_patterns(source_folder, &["*.{numatb,numdlb,numshb}"])
             .build()
@@ -925,30 +932,26 @@ fn process_files(source_folder: &Path, connection: &mut Connection) -> Result<()
             .into_iter()
             .filter_map(Result::ok)
             .collect();
-
-    // TODO: Additional performance gains?
-    // Parse files in parallel to improve performance.
-    // TODO: XMB parsing is slow (redundant string reads?).
-    let xmb_files: Vec<(&Path, Option<xmb_lib::XmbFile>)> = xmb_paths
-        .par_iter()
-        .map(|f| (f.path(), parse_xmb(f.path())))
-        .collect();
     let ssbh_files: Vec<(&Path, Option<ssbh_lib::Ssbh>)> = ssbh_paths
         .par_iter()
         .map(|f| (f.path(), parse_ssbh(f.path())))
         .collect();
+    println!("Parse {:?} SSBH files: {:?}", ssbh_files.len(), ssbh_duration.elapsed());
 
     let mut directory_id_by_path = HashMap::new();
 
     // Perform a single transaction to improve performance.
     // This can only be done from a single thread.
     let mut transaction = connection.transaction()?;
+
+    let database_duration = Instant::now();
     write_xmb_data(
         &xmb_files,
         &mut transaction,
         source_folder,
         &mut directory_id_by_path,
     )?;
+
     write_ssbh_data(
         &ssbh_files,
         &mut transaction,
@@ -956,6 +959,8 @@ fn process_files(source_folder: &Path, connection: &mut Connection) -> Result<()
         &mut directory_id_by_path,
     )?;
     transaction.commit()?;
+    println!("Write to database: {:?}", database_duration.elapsed());
+
     Ok(())
 }
 
@@ -1014,5 +1019,5 @@ fn main() {
     process_files(&source_folder, &mut connection).unwrap();
     create_indexes(&mut connection).unwrap();
 
-    eprintln!("Create {:?}: {:?}", database_path, duration.elapsed());
+    println!("Total: {:?}", duration.elapsed());
 }
