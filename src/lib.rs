@@ -572,12 +572,6 @@ static INSERT_XMB: &str = "INSERT INTO Xmb(DirectoryID, FileName) VALUES(?,?)";
 static INSERT_MESH: &str = "INSERT INTO Mesh(DirectoryID, FileName) VALUES(?,?)";
 static INSERT_MESH_OBJECT: &str = "INSERT INTO MeshObject(MeshID, Name, SubIndex) VALUES(?,?,?)";
 
-#[derive(Debug)]
-struct Person {
-    id: i32,
-    name: String,
-    data: Option<Vec<u8>>,
-}
 
 fn create_tables(transaction: &mut Transaction) -> Result<()> {
     transaction.execute(CREATE_DIRECTORY_TABLE, NO_PARAMS)?;
