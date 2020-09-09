@@ -783,8 +783,8 @@ fn process_modl(
 
 fn process_xmb(
     transaction: &mut Transaction,
-    xmb: &xmb_lib::XmbFile,
     file_name: &str,
+    xmb: &xmb_lib::XmbFile,
     directory_id: i64,
 ) -> Result<()> {
     // TODO: Add xmb entry data.
@@ -819,7 +819,7 @@ fn insert_directory_get_id(
     transaction: &Transaction,
     file_path: &Path,
     source_folder: &Path,
-    inserted_folders: &mut HashMap<String, i64>,
+    directory_id_by_path: &mut HashMap<String, i64>,
 ) -> i64 {
     let folder_path = file_path
         .parent()
@@ -830,7 +830,7 @@ fn insert_directory_get_id(
         .unwrap()
         .to_string();
 
-    match inserted_folders.get(&folder_path) {
+    match directory_id_by_path.get(&folder_path) {
         Some(directory_id) => *directory_id,
         None => {
             // TODO: Handle errors.
@@ -840,7 +840,7 @@ fn insert_directory_get_id(
                 .execute(params![folder_path])
                 .unwrap();
             let row_id = transaction.last_insert_rowid();
-            inserted_folders.insert(folder_path, row_id);
+            directory_id_by_path.insert(folder_path, row_id);
             row_id
         }
     }
@@ -848,6 +848,7 @@ fn insert_directory_get_id(
 
 // Convert to Option as a temporary workaround.
 // Box<dyn Error> won't work with par_iter.
+// TODO: Cleaner handling of errors.
 fn parse_ssbh(path: &Path) -> Option<ssbh_lib::Ssbh> {
     match ssbh_lib::read_ssbh(path) {
         Ok(ssbh) => Some(ssbh),
@@ -862,44 +863,35 @@ fn parse_xmb(path: &Path) -> Option<xmb_lib::XmbFile> {
     }
 }
 
-fn write_xmb_data(
-    xmb_files: &Vec<(&Path, Option<xmb_lib::XmbFile>)>,
+fn write_data_to_database(
+    parsed_files: &Vec<(String, ParsedFile)>,
     transaction: &mut Transaction,
     source_folder: &Path,
     directory_id_by_path: &mut HashMap<String, i64>,
-) -> Result<()> {
-    for (file_path, xmb) in xmb_files {
+) -> Result<(), Box<dyn Error>> {
+    for (file_path, parsed_file) in parsed_files {
+        let file_path = Path::new(file_path);
         let directory_id =
-            insert_directory_get_id(transaction, file_path, source_folder, directory_id_by_path);
-
+            insert_directory_get_id(&transaction, file_path, source_folder, directory_id_by_path);
         let file_name = file_path.file_name().unwrap().to_str().unwrap();
 
-        match xmb {
-            Some(xmb) => process_xmb(transaction, &xmb, file_name, directory_id)?,
-            None => continue,
+        match parsed_file {
+            ParsedFile::Ssbh(ssbh) => match ssbh {
+                Some(ssbh) => process_ssbh(transaction, file_name, &ssbh, directory_id)?,
+                None => continue,
+            },
+            ParsedFile::Xmb(xmb) => match xmb {
+                Some(xmb) => process_xmb(transaction, file_name, &xmb, directory_id)?,
+                None => continue,
+            },
         }
     }
     Ok(())
 }
 
-fn write_ssbh_data(
-    ssbh_files: &Vec<(&Path, Option<ssbh_lib::Ssbh>)>,
-    transaction: &mut Transaction,
-    source_folder: &Path,
-    directory_id_by_path: &mut HashMap<String, i64>,
-) -> Result<(), Box<dyn Error>> {
-    for (file_path, ssbh) in ssbh_files {
-        let directory_id =
-            insert_directory_get_id(&transaction, file_path, source_folder, directory_id_by_path);
-
-        let file_name = file_path.file_name().unwrap().to_str().unwrap();
-
-        match ssbh {
-            Some(ssbh) => process_ssbh(transaction, file_name, &ssbh, directory_id)?,
-            None => continue,
-        }
-    }
-    Ok(())
+enum ParsedFile {
+    Ssbh(Option<ssbh_lib::Ssbh>),
+    Xmb(Option<xmb_lib::XmbFile>),
 }
 
 pub fn process_files(
@@ -907,56 +899,45 @@ pub fn process_files(
     connection: &mut Connection,
 ) -> Result<(), Box<dyn Error>> {
     // TODO: Additional performance gains?
-    // Parse files in parallel to improve performance.
-
-    // TODO: Don't collect all paths into a vector?
     let parse_duration = Instant::now();
-    let paths: Vec<_> = globwalk::GlobWalkerBuilder::from_patterns(source_folder, &["*.{numatb,numdlb,numshb,xmb}"])
+
+    let paths = globwalk::GlobWalkerBuilder::from_patterns(
+        source_folder,
+        &["*.{numatb,numdlb,numshb,xmb}"],
+    )
     .build()
     .unwrap()
     .into_iter()
     .filter_map(Result::ok)
-    .collect();
-    
-    // TODO: Can these iterators be combined?
-    let xmb_files: Vec<(&Path, Option<xmb_lib::XmbFile>)> = paths
-        .par_iter()
-        .filter(|p| p.path().extension().unwrap() == "xmb")
-        .map(|f| (f.path(), parse_xmb(f.path())))
-        .collect();
+    .par_bridge();
 
-    let ssbh_files: Vec<(&Path, Option<ssbh_lib::Ssbh>)> = paths
-        .par_iter()
-        .filter(|p|  {
-            let extension = p.path().extension().unwrap();
-            extension == "numatb" || extension == "numdlb" || extension == "numshb"
+    // Parse files in parallel to improve performance.
+    // Assume anything other than XMB is one of the SSBH formats.
+    let parsed_files: Vec<(String, ParsedFile)> = paths
+        .map(|d| {
+            let path_string = d.path().to_str().unwrap().to_string();
+            match d.path().extension().unwrap().to_str().unwrap() {
+                "xmb" => (path_string, ParsedFile::Xmb(parse_xmb(d.path()))),
+                _ => (path_string, ParsedFile::Ssbh(parse_ssbh(d.path()))),
+            }
         })
-        .map(|f| (f.path(), parse_ssbh(f.path())))
         .collect();
 
     println!(
-        "Parse {:?} SSBH files, {:?} XMB Files: {:?}",
-        ssbh_files.len(),
-        xmb_files.len(),
+        "Parse {:?} files: {:?}",
+        parsed_files.len(),
         parse_duration.elapsed()
     );
 
-    let mut directory_id_by_path = HashMap::new();
+    let database_duration = Instant::now();
 
     // Perform a single transaction to improve performance.
     // This can only be done from a single thread.
     let mut transaction = connection.transaction()?;
 
-    let database_duration = Instant::now();
-    write_xmb_data(
-        &xmb_files,
-        &mut transaction,
-        source_folder,
-        &mut directory_id_by_path,
-    )?;
-
-    write_ssbh_data(
-        &ssbh_files,
+    let mut directory_id_by_path = HashMap::new();
+    write_data_to_database(
+        &parsed_files,
         &mut transaction,
         source_folder,
         &mut directory_id_by_path,
