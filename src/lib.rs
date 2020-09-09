@@ -909,42 +909,36 @@ pub fn process_files(
     // TODO: Additional performance gains?
     // Parse files in parallel to improve performance.
 
-    // TODO: Can these iterators be combined?
-    let xmb_duration = Instant::now();
     // TODO: Don't collect all paths into a vector?
-    let xmb_paths: Vec<_> = globwalk::GlobWalkerBuilder::from_patterns(source_folder, &["*.xmb"])
-        .build()
-        .unwrap()
-        .into_iter()
-        .filter_map(Result::ok)
-        .collect();
-    let xmb_files: Vec<(&Path, Option<xmb_lib::XmbFile>)> = xmb_paths
+    let parse_duration = Instant::now();
+    let paths: Vec<_> = globwalk::GlobWalkerBuilder::from_patterns(source_folder, &["*.{numatb,numdlb,numshb,xmb}"])
+    .build()
+    .unwrap()
+    .into_iter()
+    .filter_map(Result::ok)
+    .collect();
+    
+    // TODO: Can these iterators be combined?
+    let xmb_files: Vec<(&Path, Option<xmb_lib::XmbFile>)> = paths
         .par_iter()
+        .filter(|p| p.path().extension().unwrap() == "xmb")
         .map(|f| (f.path(), parse_xmb(f.path())))
         .collect();
-    println!(
-        "Parse {:?} XMB files: {:?}",
-        xmb_files.len(),
-        xmb_duration.elapsed()
-    );
 
-    let ssbh_duration = Instant::now();
-    // TODO: Don't collect all paths into a vector?
-    let ssbh_paths: Vec<_> =
-        globwalk::GlobWalkerBuilder::from_patterns(source_folder, &["*.{numatb,numdlb,numshb}"])
-            .build()
-            .unwrap()
-            .into_iter()
-            .filter_map(Result::ok)
-            .collect();
-    let ssbh_files: Vec<(&Path, Option<ssbh_lib::Ssbh>)> = ssbh_paths
+    let ssbh_files: Vec<(&Path, Option<ssbh_lib::Ssbh>)> = paths
         .par_iter()
+        .filter(|p|  {
+            let extension = p.path().extension().unwrap();
+            extension == "numatb" || extension == "numdlb" || extension == "numshb"
+        })
         .map(|f| (f.path(), parse_ssbh(f.path())))
         .collect();
+
     println!(
-        "Parse {:?} SSBH files: {:?}",
+        "Parse {:?} SSBH files, {:?} XMB Files: {:?}",
         ssbh_files.len(),
-        ssbh_duration.elapsed()
+        xmb_files.len(),
+        parse_duration.elapsed()
     );
 
     let mut directory_id_by_path = HashMap::new();
