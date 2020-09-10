@@ -1,7 +1,7 @@
 use smush_material_db::create_database;
 use std::env;
-use std::path::Path;
 use std::fs;
+use std::path::Path;
 use std::time::Instant;
 
 fn main() {
@@ -20,8 +20,8 @@ fn main() {
 
     let duration = Instant::now();
     match create_database(source_folder, database_path) {
-        Ok(_) => {},
-        Err(e) => println!("Error encountered while creating database: {:?}", e)
+        Ok(_) => {}
+        Err(e) => println!("Error encountered while creating database: {:?}", e),
     }
     println!("Total: {:?}", duration.elapsed());
 }

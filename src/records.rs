@@ -1,5 +1,7 @@
 use rusqlite::Transaction;
 use rusqlite::{params, Result};
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 
 // TODO: Hard code these into the functions.
 const INSERT_BOOLEAN: &str =
@@ -20,6 +22,49 @@ const INSERT_MATL: &str = "INSERT INTO Matl(DirectoryID, FileName) VALUES(?,?)";
 const INSERT_MESH: &str = "INSERT INTO Mesh(DirectoryID, FileName) VALUES(?,?)";
 const INSERT_MESH_OBJECT: &str = "INSERT INTO MeshObject(MeshID, Name, SubIndex) VALUES(?,?,?)";
 
+pub fn last_insert_matl_id() -> i64 {
+    CURRENT_MATL_ID.load(Ordering::SeqCst) as i64
+}
+
+pub fn last_insert_material_id() -> i64 {
+    CURRENT_MATERIAL_ID.load(Ordering::SeqCst) as i64
+}
+
+pub fn last_insert_mesh_id() -> i64 {
+    CURRENT_MESH_ID.load(Ordering::SeqCst) as i64
+}
+
+pub fn last_insert_mesh_object_id() -> i64 {
+    CURRENT_MESH_OBJECT_ID.load(Ordering::SeqCst) as i64
+}
+
+pub fn last_insert_xmb_id() -> i64 {
+    CURRENT_XMB_ID.load(Ordering::SeqCst) as i64
+}
+
+pub fn last_insert_xmb_entry_id() -> i64 {
+    CURRENT_XMB_ENTRY_ID.load(Ordering::SeqCst) as i64
+}
+
+pub fn last_insert_directory_id() -> i64 {
+    CURRENT_DIRECTORY_ID.load(Ordering::SeqCst) as i64
+}
+
+// TODO: Prevent modifying the atomic while new is being called?
+// TODO: Return the value in new?
+// TODO: Can this be done without locks?
+
+// Simulate an autoincrementing primary key.
+// Ensure the order of writes is maintained to preserve foreign key relationships.
+// The first call to ::new() will update the value to 1.
+static CURRENT_MATL_ID: AtomicUsize = AtomicUsize::new(0);
+static CURRENT_MATERIAL_ID: AtomicUsize = AtomicUsize::new(0);
+static CURRENT_MESH_ID: AtomicUsize = AtomicUsize::new(0);
+static CURRENT_MESH_OBJECT_ID: AtomicUsize = AtomicUsize::new(0);
+static CURRENT_XMB_ID: AtomicUsize = AtomicUsize::new(0);
+static CURRENT_XMB_ENTRY_ID: AtomicUsize = AtomicUsize::new(0);
+static CURRENT_DIRECTORY_ID: AtomicUsize = AtomicUsize::new(0);
+
 /// A type that can be converted to SQL params for inserting into a table.
 pub trait Insert {
     fn insert(&self, transaction: &mut Transaction) -> Result<()>;
@@ -27,6 +72,13 @@ pub trait Insert {
 
 pub struct DirectoryRecord {
     pub path: String,
+}
+
+impl DirectoryRecord {
+    pub fn new(path: String) -> DirectoryRecord {
+        CURRENT_DIRECTORY_ID.fetch_add(1, Ordering::SeqCst);
+        DirectoryRecord { path }
+    }
 }
 
 impl Insert for DirectoryRecord {
@@ -194,6 +246,17 @@ pub struct MaterialRecord {
     pub shader_label: String,
 }
 
+impl MaterialRecord {
+    pub fn new(matl_id: i64, material_label: String, shader_label: String) -> MaterialRecord {
+        CURRENT_MATERIAL_ID.fetch_add(1, Ordering::SeqCst);
+        MaterialRecord {
+            matl_id,
+            material_label,
+            shader_label,
+        }
+    }
+}
+
 impl Insert for MaterialRecord {
     fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction
@@ -252,6 +315,16 @@ pub struct MatlRecord {
     pub file_name: String,
 }
 
+impl MatlRecord {
+    pub fn new(directory_id: i64, file_name: String) -> MatlRecord {
+        CURRENT_MATL_ID.fetch_add(1, Ordering::SeqCst);
+        MatlRecord {
+            directory_id,
+            file_name,
+        }
+    }
+}
+
 impl Insert for MatlRecord {
     fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction
@@ -266,6 +339,16 @@ pub struct XmbRecord {
     pub file_name: String,
 }
 
+impl XmbRecord {
+    pub fn new(directory_id: i64, file_name: String) -> XmbRecord {
+        CURRENT_XMB_ID.fetch_add(1, Ordering::SeqCst);
+        XmbRecord {
+            directory_id,
+            file_name,
+        }
+    }
+}
+
 impl Insert for XmbRecord {
     fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction
@@ -278,6 +361,13 @@ impl Insert for XmbRecord {
 pub struct XmbEntryRecord {
     pub xmb_id: i64,
     pub name: String,
+}
+
+impl XmbEntryRecord {
+    pub fn new(xmb_id: i64, name: String) -> XmbEntryRecord {
+        CURRENT_XMB_ENTRY_ID.fetch_add(1, Ordering::SeqCst);
+        XmbEntryRecord { xmb_id, name }
+    }
 }
 
 impl Insert for XmbEntryRecord {
@@ -295,6 +385,16 @@ pub struct XmbAttributeRecord {
     pub value: String,
 }
 
+impl XmbAttributeRecord {
+    pub fn new(xmb_entry_id: i64, name: String, value: String) -> XmbAttributeRecord {
+        XmbAttributeRecord {
+            xmb_entry_id,
+            name,
+            value,
+        }
+    }
+}
+
 impl Insert for XmbAttributeRecord {
     fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction
@@ -307,6 +407,16 @@ impl Insert for XmbAttributeRecord {
 pub struct MeshRecord {
     pub directory_id: i64,
     pub file_name: String,
+}
+
+impl MeshRecord {
+    pub fn new(directory_id: i64, file_name: String) -> MeshRecord {
+        CURRENT_MESH_ID.fetch_add(1, Ordering::SeqCst);
+        MeshRecord {
+            directory_id,
+            file_name,
+        }
+    }
 }
 
 impl Insert for MeshRecord {
@@ -323,7 +433,25 @@ pub struct ModlRecord {
     pub file_name: String,
     pub model_file_name: String,
     pub skeleton_file_name: String,
-    pub material_file_name: String
+    pub material_file_name: String,
+}
+
+impl ModlRecord {
+    pub fn new(
+        directory_id: i64,
+        file_name: String,
+        model_file_name: String,
+        skeleton_file_name: String,
+        material_file_name: String,
+    ) -> ModlRecord {
+        ModlRecord {
+            directory_id,
+            file_name,
+            model_file_name,
+            skeleton_file_name,
+            material_file_name,
+        }
+    }
 }
 
 impl Insert for ModlRecord {
@@ -341,6 +469,17 @@ pub struct MeshObjectRecord {
     pub sub_index: i64,
 }
 
+impl MeshObjectRecord {
+    pub fn new(mesh_id: i64, mesh_name: String, sub_index: i64) -> MeshObjectRecord {
+        CURRENT_MESH_OBJECT_ID.fetch_add(1, Ordering::SeqCst);
+        MeshObjectRecord {
+            mesh_id,
+            mesh_name,
+            sub_index,
+        }
+    }
+}
+
 impl Insert for MeshObjectRecord {
     fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction
@@ -353,6 +492,15 @@ impl Insert for MeshObjectRecord {
 pub struct MeshAttributeRecord {
     pub mesh_object_id: i64,
     pub attribute_name: String,
+}
+
+impl MeshAttributeRecord {
+    pub fn new(mesh_object_id: i64, attribute_name: String) -> MeshAttributeRecord {
+        MeshAttributeRecord {
+            mesh_object_id,
+            attribute_name,
+        }
+    }
 }
 
 impl Insert for MeshAttributeRecord {

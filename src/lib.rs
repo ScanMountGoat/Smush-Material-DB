@@ -607,27 +607,22 @@ fn insert_custom_params(transaction: &Transaction) -> Result<()> {
 
 fn process_matl(
     matl: &ssbh_lib::formats::matl::Matl,
-    matl_id: &mut i64,
-    material_id: &mut i64,
     directory_id: i64,
     file_name: String,
 ) -> Vec<Box<dyn Insert>> {
     let mut records: Vec<Box<dyn Insert>> = Vec::new();
-    records.push(Box::new(MatlRecord {
-        directory_id,
-        file_name,
-    }));
-    *matl_id += 1;
+    records.push(Box::new(MatlRecord::new(directory_id, file_name)));
+    let matl_id = records::last_insert_matl_id();
 
     for entry in &matl.entries.elements {
         let material_label = entry.material_label.get_string().unwrap();
         let shader_label = entry.shader_label.get_string().unwrap();
-        records.push(Box::new(MaterialRecord {
-            matl_id: *matl_id,
-            material_label: material_label.to_string(),
-            shader_label: shader_label.to_string(),
-        }));
-        *material_id += 1;
+        records.push(Box::new(MaterialRecord::new(
+            matl_id,
+            material_label.to_string(),
+            shader_label.to_string(),
+        )));
+        let material_id = last_insert_material_id();
 
         for attribute in &entry.attributes.elements {
             let param_id = attribute.param_id as u32;
@@ -636,21 +631,21 @@ fn process_matl(
                 ssbh_lib::formats::matl::Param::Boolean(val) => {
                     records.push(Box::new(BoolRecord {
                         param_id,
-                        material_id: *material_id,
+                        material_id,
                         value: *val > 0,
                     }));
                 }
                 ssbh_lib::formats::matl::Param::Float(val) => {
                     records.push(Box::new(FloatRecord {
                         param_id,
-                        material_id: *material_id,
+                        material_id,
                         value: *val as f64,
                     }));
                 }
                 ssbh_lib::formats::matl::Param::Vector4(val) => {
                     records.push(Box::new(Vector4Record {
                         param_id,
-                        material_id: *material_id,
+                        material_id,
                         x: val.x as f64,
                         y: val.y as f64,
                         z: val.z as f64,
@@ -661,14 +656,14 @@ fn process_matl(
                     let text = val.get_string().unwrap().to_string();
                     records.push(Box::new(TextureRecord {
                         param_id,
-                        material_id: *material_id,
+                        material_id,
                         text,
                     }));
                 }
                 ssbh_lib::formats::matl::Param::Sampler(val) => {
                     records.push(Box::new(SamplerRecord {
                         param_id,
-                        material_id: *material_id,
+                        material_id,
                         wraps: val.wraps as u32,
                         wrapt: val.wrapt as u32,
                         wrapr: val.wrapr as u32,
@@ -688,7 +683,7 @@ fn process_matl(
                 ssbh_lib::formats::matl::Param::BlendState(val) => {
                     records.push(Box::new(BlendStateRecord {
                         param_id,
-                        material_id: *material_id,
+                        material_id,
                         unk1: val.unk1,
                         unk2: val.unk2,
                         blend_factor1: val.blend_factor1,
@@ -706,7 +701,7 @@ fn process_matl(
                 ssbh_lib::formats::matl::Param::RasterizerState(val) => {
                     records.push(Box::new(RasterizerRecord {
                         param_id,
-                        material_id: *material_id,
+                        material_id,
                         fill_mode: val.fill_mode as u32,
                         cull_mode: val.cull_mode as u32,
                         depth_bias: val.depth_bias as f64,
@@ -728,31 +723,24 @@ fn process_matl(
 fn process_mesh(
     mesh: &ssbh_lib::formats::mesh::Mesh,
     file_name: &str,
-    mesh_id: &mut i64,
-    mesh_object_id: &mut i64,
-    mesh_attribute_id: &mut i64,
     directory_id: i64,
 ) -> Vec<Box<dyn Insert>> {
     let mut records: Vec<Box<dyn Insert>> = Vec::new();
 
-    // TODO: Simpler way to ensure the id gets incremented?
-    // Combine increment with create method?
-    records.push(Box::new(MeshRecord {
+    records.push(Box::new(MeshRecord::new(
         directory_id,
-        file_name: file_name.to_string(),
-    }));
-    *mesh_id += 1;
+        file_name.to_string(),
+    )));
+    let mesh_id = last_insert_mesh_id();
 
     for object in &mesh.objects.elements {
         let mesh_name = object.name.get_string().unwrap().to_string();
         let sub_index = object.sub_index;
-        records.push(Box::new(MeshObjectRecord {
-            mesh_id: *mesh_id,
-            mesh_name,
-            sub_index,
-        }));
+        records.push(Box::new(MeshObjectRecord::new(
+            mesh_id, mesh_name, sub_index,
+        )));
 
-        *mesh_object_id += 1;
+        let mesh_object_id = last_insert_mesh_object_id();
 
         for attribute in &object.attributes.elements {
             let attribute_name = attribute.attribute_names.elements[0]
@@ -760,10 +748,9 @@ fn process_mesh(
                 .unwrap()
                 .to_string();
             records.push(Box::new(MeshAttributeRecord {
-                mesh_object_id: *mesh_object_id,
+                mesh_object_id,
                 attribute_name,
             }));
-            *mesh_attribute_id += 1;
         }
     }
 
@@ -777,73 +764,51 @@ fn process_modl(
 ) -> ModlRecord {
     // There could be multiple material filenames but assume just one.
     // Most modl files only reference a single material.
-    ModlRecord {
+    ModlRecord::new(
         directory_id,
-        file_name: file_name.to_string(),
-        model_file_name: modl.model_file_name.get_string().unwrap().to_string(),
-        material_file_name: modl.material_file_names.elements[0].get_string().unwrap().to_string(),
-        skeleton_file_name: modl.skeleton_file_name.get_string().unwrap().to_string()
-    }
+        file_name.to_string(),
+        modl.model_file_name.get_string().unwrap().to_string(),
+        modl.material_file_names.elements[0]
+            .get_string()
+            .unwrap()
+            .to_string(),
+        modl.skeleton_file_name.get_string().unwrap().to_string(),
+    )
 }
 
-fn process_xmb(file_name: &str, xmb: &xmb_lib::XmbFile, directory_id: i64,
-    current_xmb_id: &mut i64, current_xmb_entry_id: &mut i64, current_xmb_attribute_id: &mut i64) 
--> Vec<Box<dyn Insert>> {
+fn process_xmb(file_name: &str, xmb: &xmb_lib::XmbFile, directory_id: i64) -> Vec<Box<dyn Insert>> {
     let mut records: Vec<Box<dyn Insert>> = Vec::new();
-    // TODO: Find a way to prevent incrementing the wrong ID.
-    // Static get function in records module to prevent outside mutability?
-    // Each ::new() function would increment the static ID.
-    // Assume there is only a single database with autoincrement primary keys.
-    records.push(Box::new(XmbRecord {
+    records.push(Box::new(XmbRecord::new(
         directory_id,
-        file_name: file_name.to_string()
-    }));
-    *current_xmb_id += 1;
+        file_name.to_string(),
+    )));
+    let xmb_id = last_insert_xmb_id();
 
     for entry in &xmb.entries {
-        records.push(Box::new(XmbEntryRecord {xmb_id: *current_xmb_id, name: entry.name.clone()}));
-        *current_xmb_entry_id += 1;
+        records.push(Box::new(XmbEntryRecord::new(xmb_id, entry.name.clone())));
+        let xmb_entry_id = last_insert_xmb_entry_id();
 
         for attribute in &entry.attributes {
-            records.push(Box::new(XmbAttributeRecord {xmb_entry_id: *current_xmb_entry_id, name: attribute.0.clone(), value: attribute.1.clone()}));
-            *current_xmb_attribute_id += 1;
+            records.push(Box::new(XmbAttributeRecord::new(
+                xmb_entry_id,
+                attribute.0.clone(),
+                attribute.1.clone(),
+            )));
         }
     }
 
     records
 }
 
-fn process_ssbh(
-    file_name: &str,
-    ssbh: &ssbh_lib::Ssbh,
-    directory_id: i64,
-    matl_id: &mut i64,
-    material_id: &mut i64,
-    mesh_id: &mut i64,
-    mesh_object_id: &mut i64,
-    mesh_attribute_id: &mut i64,
-) -> Vec<Box<dyn Insert>> {
+fn process_ssbh(file_name: &str, ssbh: &ssbh_lib::Ssbh, directory_id: i64) -> Vec<Box<dyn Insert>> {
     match &ssbh.data {
-        ssbh_lib::SsbhFile::Matl(matl) => process_matl(
-            &matl,
-            matl_id,
-            material_id,
-            directory_id,
-            file_name.to_string(),
-        ),
+        ssbh_lib::SsbhFile::Matl(matl) => process_matl(&matl, directory_id, file_name.to_string()),
         ssbh_lib::SsbhFile::Modl(modl) => {
             // TODO: Finish this method.
             let record = process_modl(&modl, file_name, directory_id);
             vec![Box::new(record)]
         }
-        ssbh_lib::SsbhFile::Mesh(mesh) => process_mesh(
-            &mesh,
-            file_name,
-            mesh_id,
-            mesh_object_id,
-            mesh_attribute_id,
-            directory_id,
-        ),
+        ssbh_lib::SsbhFile::Mesh(mesh) => process_mesh(&mesh, file_name, directory_id),
         _ => (Vec::<Box<dyn Insert>>::new()),
     }
 }
@@ -852,7 +817,6 @@ fn process_ssbh(
 fn insert_directory_get_id(
     file_path: &Path,
     source_folder: &Path,
-    row_id: i64,
     directory_id_by_path: &mut HashMap<String, i64>,
 ) -> (i64, Option<DirectoryRecord>) {
     // Only store the in game directory structure.
@@ -869,9 +833,10 @@ fn insert_directory_get_id(
     match directory_id_by_path.get(&folder_path) {
         Some(directory_id) => (*directory_id, None),
         None => {
-            let new_row_id = row_id + 1;
-            directory_id_by_path.insert(folder_path.clone(), new_row_id);
-            (new_row_id, Some(DirectoryRecord { path: folder_path }))
+            let record = DirectoryRecord::new(folder_path.clone());
+            let new_id = last_insert_directory_id();
+            directory_id_by_path.insert(folder_path.clone(), new_id);
+            (new_id, Some(record))
         }
     }
 }
@@ -897,18 +862,6 @@ fn get_database_data(
     parsed_files: &Vec<(String, ParsedFile)>,
     source_folder: &Path,
 ) -> Vec<Box<dyn Insert>> {
-    // Simulate an autoincrementing primary key.
-    // The first insert will update the value to 1.
-    let mut current_matl_id: i64 = 0;
-    let mut current_material_id: i64 = 0;
-    let mut current_mesh_id: i64 = 0;
-    let mut current_mesh_object_id: i64 = 0;
-    let mut current_mesh_attribute_id: i64 = 0;
-    let mut current_xmb_id: i64 = 0;
-    let mut current_xmb_entry_id: i64 = 0;
-    let mut current_xmb_attribute_id: i64 = 0;
-    let mut current_directory_id: i64 = 0;
-
     let mut directory_id_by_path = HashMap::new();
 
     let mut records: Vec<Box<dyn Insert>> = Vec::new();
@@ -916,13 +869,8 @@ fn get_database_data(
     for (file_path, parsed_file) in parsed_files {
         // TODO: Move directory processing elsewhere?
         let file_path = Path::new(file_path);
-        let (directory_id, directory_record) = insert_directory_get_id(
-            file_path,
-            source_folder,
-            current_directory_id,
-            &mut directory_id_by_path,
-        );
-        current_directory_id = directory_id;
+        let (directory_id, directory_record) =
+            insert_directory_get_id(file_path, source_folder, &mut directory_id_by_path);
 
         // Check for directory changes.
         match directory_record {
@@ -935,16 +883,7 @@ fn get_database_data(
         match parsed_file {
             ParsedFile::Ssbh(ssbh) => match ssbh {
                 Some(ssbh) => {
-                    let mut ssbh_records = process_ssbh(
-                        file_name,
-                        &ssbh,
-                        directory_id,
-                        &mut current_matl_id,
-                        &mut current_material_id,
-                        &mut current_mesh_id,
-                        &mut current_mesh_object_id,
-                        &mut current_mesh_attribute_id,
-                    );
+                    let mut ssbh_records = process_ssbh(file_name, &ssbh, directory_id);
                     records.append(&mut ssbh_records);
                 }
 
@@ -952,8 +891,7 @@ fn get_database_data(
             },
             ParsedFile::Xmb(xmb) => match xmb {
                 Some(xmb) => {
-                    let mut xmb_records = process_xmb(file_name, &xmb, directory_id, 
-                        &mut current_xmb_id, &mut current_xmb_entry_id, &mut current_xmb_attribute_id);
+                    let mut xmb_records = process_xmb(file_name, &xmb, directory_id);
                     records.append(&mut xmb_records);
                 }
 
@@ -1018,7 +956,11 @@ fn process_files(source_folder: &Path, connection: &mut Connection) -> Result<()
     }
 
     transaction.commit()?;
-    println!("Write {} records to database: {:?}", records.len(), database_duration.elapsed());
+    println!(
+        "Write {} records to database: {:?}",
+        records.len(),
+        database_duration.elapsed()
+    );
 
     Ok(())
 }
@@ -1062,6 +1004,6 @@ pub fn create_database(source_folder: &Path, database_path: &Path) -> Result<()>
     initialize_database(&mut connection)?;
     process_files(&source_folder, &mut connection)?;
     create_indexes(&mut connection)?;
-    
+
     Ok(())
 }
