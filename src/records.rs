@@ -26,6 +26,19 @@ pub trait Insert {
     fn insert(&self, transaction: &mut Transaction) -> Result<()>;
 }
 
+pub struct DirectoryRecord {
+    pub path: String,
+}
+
+impl Insert for DirectoryRecord {
+    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
+        transaction
+            .prepare_cached("INSERT INTO Directory(Path) VALUES (?)")?
+            .execute(params![&self.path])?;
+        Ok(())
+    }
+}
+
 pub struct BoolRecord {
     pub param_id: u32,
     pub material_id: i64,

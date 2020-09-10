@@ -1,8 +1,6 @@
 use rayon::prelude::*;
 use rusqlite::Transaction;
 use rusqlite::{params, Connection, Result, NO_PARAMS};
-use serde::Serialize;
-use serde_rusqlite::*;
 use std::collections::HashMap;
 use std::error::Error;
 use std::path::Path;
@@ -554,8 +552,6 @@ const CREATE_SAMPLER_TABLE: &str = r#"CREATE TABLE "Sampler" (
 	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID")
 )"#;
 
-const INSERT_DIRECTORY: &str = "INSERT INTO Directory(Path) VALUES (?)";
-
 fn create_tables(transaction: &mut Transaction) -> Result<()> {
     transaction.execute(CREATE_DIRECTORY_TABLE, NO_PARAMS)?;
     transaction.execute(CREATE_MODL_TABLE, NO_PARAMS)?;
@@ -601,7 +597,6 @@ fn process_matl(
     }));
     *matl_id += 1;
 
-    let mut material_id = material_id;
     for entry in &matl.entries.elements {
         let material_label = entry.material_label.get_string().unwrap();
         let shader_label = entry.shader_label.get_string().unwrap();
@@ -612,7 +607,6 @@ fn process_matl(
         }));
         *material_id += 1;
 
-        // TODO: The material_id is the same for every entry.
         for attribute in &entry.attributes.elements {
             let param_id = attribute.param_id as u32;
 
@@ -809,12 +803,13 @@ fn process_ssbh(
     }
 }
 
+/// Get the row and the inserted record if the path has not been added yet.
 fn insert_directory_get_id(
-    transaction: &Transaction,
     file_path: &Path,
     source_folder: &Path,
+    row_id: i64,
     directory_id_by_path: &mut HashMap<String, i64>,
-) -> i64 {
+) -> (i64, Option<DirectoryRecord>) {
     let folder_path = file_path
         .parent()
         .unwrap()
@@ -825,17 +820,11 @@ fn insert_directory_get_id(
         .to_string();
 
     match directory_id_by_path.get(&folder_path) {
-        Some(directory_id) => *directory_id,
+        Some(directory_id) => (*directory_id, None),
         None => {
-            // TODO: Handle errors.
-            transaction
-                .prepare_cached(INSERT_DIRECTORY)
-                .unwrap()
-                .execute(params![folder_path])
-                .unwrap();
-            let row_id = transaction.last_insert_rowid();
-            directory_id_by_path.insert(folder_path, row_id);
-            row_id
+            let new_row_id = row_id + 1;
+            directory_id_by_path.insert(folder_path.clone(), new_row_id);
+            (new_row_id, Some(DirectoryRecord { path: folder_path }))
         }
     }
 }
@@ -857,33 +846,46 @@ fn parse_xmb(path: &Path) -> Option<xmb_lib::XmbFile> {
     }
 }
 
-fn write_data_to_database(
+fn get_database_data(
     parsed_files: &Vec<(String, ParsedFile)>,
-    transaction: &mut Transaction,
     source_folder: &Path,
-    directory_id_by_path: &mut HashMap<String, i64>,
-) -> Result<(), Box<dyn Error>> {
-    // Keep track of the last inserted row id.
+) -> Vec<Box<dyn Insert>> {
     // Simulate an autoincrementing primary key.
-    // This will need some sort of synchronization
-    // when processing from multiple threads.
+    // The first insert will update the value to 1.
     let mut current_matl_id: i64 = 0;
     let mut current_material_id: i64 = 0;
     let mut current_mesh_id: i64 = 0;
     let mut current_mesh_object_id: i64 = 0;
     let mut current_mesh_attribute_id: i64 = 0;
+    let mut current_directory_id: i64 = 0;
+
+    let mut directory_id_by_path = HashMap::new();
+
+    let mut records: Vec<Box<dyn Insert>> = Vec::new();
 
     for (file_path, parsed_file) in parsed_files {
         // TODO: Move directory processing elsewhere?
         let file_path = Path::new(file_path);
-        let directory_id =
-            insert_directory_get_id(&transaction, file_path, source_folder, directory_id_by_path);
+        let (directory_id, directory_record) = insert_directory_get_id(
+            file_path,
+            source_folder,
+            current_directory_id,
+            &mut directory_id_by_path,
+        );
+        current_directory_id = directory_id;
+
+        // Check for directory changes.
+        match directory_record {
+            Some(record) => records.push(Box::new(record)),
+            None => {}
+        }
+
         let file_name = file_path.file_name().unwrap().to_str().unwrap();
 
         match parsed_file {
             ParsedFile::Ssbh(ssbh) => match ssbh {
                 Some(ssbh) => {
-                    let records = process_ssbh(
+                    let mut ssbh_records = process_ssbh(
                         file_name,
                         &ssbh,
                         directory_id,
@@ -893,10 +895,7 @@ fn write_data_to_database(
                         &mut current_mesh_object_id,
                         &mut current_mesh_attribute_id,
                     );
-                    for record in records {
-                        // TODO: Don't unwrap.
-                        record.insert(transaction).unwrap();
-                    }
+                    records.append(&mut ssbh_records);
                 }
 
                 None => continue,
@@ -904,15 +903,15 @@ fn write_data_to_database(
             ParsedFile::Xmb(xmb) => match xmb {
                 Some(xmb) => {
                     let record = process_xmb(file_name, &xmb, directory_id);
-                    // TODO: Don't unwrap.
-                    record.insert(transaction).unwrap();
+                    records.push(Box::new(record));
                 }
 
                 None => continue,
             },
         }
     }
-    Ok(())
+
+    records
 }
 
 enum ParsedFile {
@@ -920,10 +919,7 @@ enum ParsedFile {
     Xmb(Option<xmb_lib::XmbFile>),
 }
 
-pub fn process_files(
-    source_folder: &Path,
-    connection: &mut Connection,
-) -> Result<(), Box<dyn Error>> {
+fn process_files(source_folder: &Path, connection: &mut Connection) -> Result<(), Box<dyn Error>> {
     // TODO: Additional performance gains?
     let parse_duration = Instant::now();
 
@@ -955,26 +951,26 @@ pub fn process_files(
         parse_duration.elapsed()
     );
 
-    let database_duration = Instant::now();
+    let create_records = Instant::now();
+    let records = get_database_data(&parsed_files, source_folder);
+    println!("Create data: {:?}", create_records.elapsed());
 
     // Perform a single transaction to improve performance.
     // This can only be done from a single thread.
+    let database_duration = Instant::now();
     let mut transaction = connection.transaction()?;
 
-    let mut directory_id_by_path = HashMap::new();
-    write_data_to_database(
-        &parsed_files,
-        &mut transaction,
-        source_folder,
-        &mut directory_id_by_path,
-    )?;
+    for record in &records {
+        record.insert(&mut transaction)?;
+    }
+
     transaction.commit()?;
-    println!("Write to database: {:?}", database_duration.elapsed());
+    println!("Write {} records to database: {:?}", records.len(), database_duration.elapsed());
 
     Ok(())
 }
 
-pub fn create_indexes(connection: &mut Connection) -> Result<()> {
+fn create_indexes(connection: &mut Connection) -> Result<()> {
     let transaction = connection.transaction()?;
 
     // Create indexes to optimize only the more commonly specified parameters.
@@ -998,11 +994,19 @@ pub fn create_indexes(connection: &mut Connection) -> Result<()> {
     transaction.commit()
 }
 
-pub fn initialize_database(connection: &mut Connection) -> Result<()> {
+fn initialize_database(connection: &mut Connection) -> Result<()> {
     let mut transaction = connection.transaction()?;
 
     create_tables(&mut transaction)?;
     insert_custom_params(&mut transaction)?;
 
     transaction.commit()
+}
+
+pub fn create_database(source_folder: &Path, database_path: &Path) {
+    let mut connection = Connection::open(database_path).unwrap();
+
+    initialize_database(&mut connection).unwrap();
+    process_files(&source_folder, &mut connection).unwrap();
+    create_indexes(&mut connection).unwrap();
 }

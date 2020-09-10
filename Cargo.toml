@@ -11,8 +11,6 @@ ssbh_lib = { path = "../ssbh_lib" }
 xmb_lib = { path = "../xmb_lib" }
 globwalk = "0.8.0"
 rusqlite = { version = "0.24.0", features = ["bundled"] }
-serde_rusqlite = "0.26.0"
-serde = "1.0.0"
 rayon = "1.4.0"
 
 [profile.release]

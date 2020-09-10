@@ -1,5 +1,4 @@
-use rusqlite::Connection;
-use smush_material_db::*;
+use smush_material_db::create_database;
 use std::env;
 use std::fs;
 use std::path::Path;
@@ -20,13 +19,6 @@ fn main() {
     }
 
     let duration = Instant::now();
-
-    // TODO: Move database/SQL code to lib.rs.
-    let mut connection = Connection::open(database_path).unwrap();
-
-    initialize_database(&mut connection).unwrap();
-    process_files(&source_folder, &mut connection).unwrap();
-    create_indexes(&mut connection).unwrap();
-
+    create_database(source_folder, database_path);
     println!("Total: {:?}", duration.elapsed());
 }
