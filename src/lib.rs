@@ -572,7 +572,6 @@ static INSERT_XMB: &str = "INSERT INTO Xmb(DirectoryID, FileName) VALUES(?,?)";
 static INSERT_MESH: &str = "INSERT INTO Mesh(DirectoryID, FileName) VALUES(?,?)";
 static INSERT_MESH_OBJECT: &str = "INSERT INTO MeshObject(MeshID, Name, SubIndex) VALUES(?,?,?)";
 
-
 fn create_tables(transaction: &mut Transaction) -> Result<()> {
     transaction.execute(CREATE_DIRECTORY_TABLE, NO_PARAMS)?;
     transaction.execute(CREATE_MODL_TABLE, NO_PARAMS)?;
@@ -613,200 +612,605 @@ fn execute_many<P: Serialize>(transaction: &Transaction, sql: &str, params: &Vec
     Ok(())
 }
 
-fn process_matl(
+fn insert_file(
     transaction: &mut Transaction,
-    matl: &ssbh_lib::formats::matl::Matl,
-    file_name: &str,
+    sql: &str,
     directory_id: i64,
-) -> Result<()> {
-    // TODO: Insert matl get id function.
+    file_name: &str,
+) -> Result<i64> {
     transaction
-        .prepare_cached(INSERT_MATL)?
+        .prepare_cached(sql)?
         .execute(params![directory_id, file_name,])?;
-    let matl_id = transaction.last_insert_rowid();
+    Ok(transaction.last_insert_rowid())
+}
 
-    let mut booleans = Vec::new();
-    let mut floats = Vec::new();
-    let mut rasterizers = Vec::new();
-    let mut textures = Vec::new();
-    let mut vec4s = Vec::new();
-    let mut samplers = Vec::new();
-    let mut blendstates = Vec::new();
+// TODO: Calculate row id without transaction?
+fn insert_matl(transaction: &mut Transaction, directory_id: i64, file_name: &str) -> Result<i64> {
+    insert_file(transaction, INSERT_MATL, directory_id, file_name)
+}
 
-    for entry in &matl.entries.elements {
-        // TODO: Insert material get id function.
-        let material_label = entry.material_label.get_string().unwrap();
-        let shader_label = entry.shader_label.get_string().unwrap();
+fn insert_material(
+    transaction: &mut Transaction,
+    matl_id: i64,
+    material_label: &str,
+    shader_label: &str,
+) -> Result<i64> {
+    transaction
+        .prepare_cached(INSERT_MATERIAL)?
+        .execute(params![matl_id, material_label, shader_label])?;
+    Ok(transaction.last_insert_rowid())
+}
+
+trait Insert {
+    fn insert(&self, transaction: &mut Transaction) -> Result<()>;
+}
+
+struct BoolRecord {
+    pub param_id: u32,
+    pub material_id: i64,
+    pub value: bool,
+}
+
+impl Insert for BoolRecord {
+    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
+        transaction.prepare_cached(INSERT_BOOLEAN)?.execute(params![
+            self.param_id,
+            self.material_id,
+            self.value
+        ])?;
+        Ok(())
+    }
+}
+
+struct FloatRecord {
+    pub param_id: u32,
+    pub material_id: i64,
+    pub value: f64,
+}
+
+impl Insert for FloatRecord {
+    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
+        transaction.prepare_cached(INSERT_FLOAT)?.execute(params![
+            self.param_id,
+            self.material_id,
+            self.value
+        ])?;
+        Ok(())
+    }
+}
+struct RasterizerRecord {
+    pub param_id: u32,
+    pub material_id: i64,
+    pub fill_mode: u32,
+    pub cull_mode: u32,
+    pub depth_bias: f64,
+    pub unk4: f64,
+    pub unk5: f64,
+    pub unk6: u32,
+    pub unk7: u32,
+    pub unk8: f64,
+}
+
+impl Insert for RasterizerRecord {
+    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
+        transaction
+            .prepare_cached(INSERT_RASTERIZER)?
+            .execute(params![
+                self.param_id,
+                self.material_id,
+                self.fill_mode,
+                self.cull_mode,
+                self.depth_bias,
+                self.unk4,
+                self.unk5,
+                self.unk6,
+                self.unk7,
+                self.unk8,
+            ])?;
+        Ok(())
+    }
+}
+
+struct BlendStateRecord {
+    pub param_id: u32,
+    pub material_id: i64,
+    pub unk1: u32,
+    pub unk2: u32,
+    pub blend_factor1: u32,
+    pub unk4: u32,
+    pub unk5: u32,
+    pub blend_factor2: u32,
+    pub unk7: u32,
+    pub unk8: u32,
+    pub unk9: u32,
+    pub unk10: u32,
+    pub unk11: u32,
+    pub unk12: u32,
+}
+
+impl Insert for BlendStateRecord {
+    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
+        transaction
+            .prepare_cached(INSERT_BLEND_STATE)?
+            .execute(params![
+                self.param_id,
+                self.material_id,
+                self.unk1,
+                self.unk2,
+                self.blend_factor1,
+                self.unk4,
+                self.unk5,
+                self.blend_factor2,
+                self.unk7,
+                self.unk8,
+                self.unk9,
+                self.unk10,
+                self.unk11,
+                self.unk12
+            ])?;
+        Ok(())
+    }
+}
+
+struct SamplerRecord {
+    pub param_id: u32,
+    pub material_id: i64,
+    pub wraps: u32,
+    pub wrapt: u32,
+    pub wrapr: u32,
+    pub min_filter: u32,
+    pub mag_filter: u32,
+    pub unk6: u32,
+    pub unk7: u32,
+    pub unk8: u32,
+    pub unk9: u32,
+    pub unk10: u32,
+    pub unk11: u32,
+    pub unk12: u32,
+    pub lod_bias: f64,
+    pub max_anisotropy: u32,
+}
+
+impl Insert for SamplerRecord {
+    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
+        transaction
+            .prepare_cached(INSERT_SAMPLER)?
+            .execute(params![
+                self.param_id,
+                self.material_id,
+                self.wraps,
+                self.wrapt,
+                self.wrapr,
+                self.min_filter,
+                self.mag_filter,
+                self.unk6,
+                self.unk7,
+                self.unk8,
+                self.unk9,
+                self.unk10,
+                self.unk11,
+                self.unk12,
+                self.lod_bias,
+                self.max_anisotropy
+            ])?;
+        Ok(())
+    }
+}
+
+struct MaterialRecord {
+    pub matl_id: i64,
+    pub material_label: String,
+    pub shader_label: String,
+}
+
+impl Insert for MaterialRecord {
+    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction
             .prepare_cached(INSERT_MATERIAL)?
-            .execute(params![matl_id, material_label, shader_label])?;
-        let material_id = transaction.last_insert_rowid();
+            .execute(params![
+                self.matl_id,
+                self.material_label,
+                &self.shader_label
+            ])?;
+        Ok(())
+    }
+}
 
+struct TextureRecord {
+    pub param_id: u32,
+    pub material_id: i64,
+    pub text: String,
+}
+
+impl Insert for TextureRecord {
+    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
+        transaction
+            .prepare_cached(INSERT_TEXTURE)?
+            .execute(params![self.param_id, self.material_id, &self.text])?;
+        Ok(())
+    }
+}
+
+struct Vector4Record {
+    pub param_id: u32,
+    pub material_id: i64,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub w: f64,
+}
+
+impl Insert for Vector4Record {
+    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
+        transaction
+            .prepare_cached(INSERT_VECTOR4)?
+            .execute(params![
+                self.param_id,
+                self.material_id,
+                self.x,
+                self.y,
+                self.z,
+                self.w
+            ])?;
+        Ok(())
+    }
+}
+
+struct MatlRecord {
+    directory_id: i64,
+    file_name: String,
+}
+
+impl Insert for MatlRecord {
+    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
+        transaction
+            .prepare_cached(INSERT_MATL)?
+            .execute(params![self.directory_id, self.file_name])?;
+        Ok(())
+    }
+}
+
+struct XmbRecord {
+    directory_id: i64,
+    file_name: String,
+}
+
+impl Insert for XmbRecord {
+    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
+        transaction
+            .prepare_cached(INSERT_XMB)?
+            .execute(params![self.directory_id, self.file_name])?;
+        Ok(())
+    }
+}
+
+struct MeshRecord {
+    directory_id: i64,
+    file_name: String,
+}
+
+impl Insert for MeshRecord {
+    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
+        transaction
+            .prepare_cached(INSERT_MESH)?
+            .execute(params![self.directory_id, self.file_name])?;
+        Ok(())
+    }
+}
+
+struct ModlRecord {
+    directory_id: i64,
+    file_name: String,
+}
+
+impl Insert for ModlRecord {
+    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
+        transaction
+            .prepare_cached(INSERT_MODL)?
+            .execute(params![self.directory_id, self.file_name])?;
+        Ok(())
+    }
+}
+
+struct MeshObjectRecord {
+    pub mesh_id: i64,
+    pub mesh_name: String,
+    pub sub_index: i64,
+}
+
+impl Insert for MeshObjectRecord {
+    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
+        transaction
+            .prepare_cached(INSERT_MESH_OBJECT)?
+            .execute(params![self.mesh_id, self.mesh_name, self.sub_index])?;
+        Ok(())
+    }
+}
+
+struct MeshAttributeRecord {
+    pub mesh_object_id: i64,
+    pub attribute_name: String,
+}
+
+impl Insert for MeshAttributeRecord {
+    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
+        transaction
+            .prepare_cached(INSERT_MESH_ATTRIBUTE)?
+            .execute(params![self.mesh_object_id, self.attribute_name])?;
+        Ok(())
+    }
+}
+
+fn process_matl(
+    matl: &ssbh_lib::formats::matl::Matl,
+    current_matl_id: i64,
+    current_material_id: i64,
+    directory_id: i64,
+    file_name: String,
+) -> (
+    i64, // matlid
+    i64, // materialid
+    Vec<Box<dyn Insert>>,
+) {
+    let matl_id = current_matl_id + 1;
+
+    let mut records: Vec<Box<dyn Insert>> = Vec::new();
+    records.push(Box::new(MatlRecord {
+        directory_id,
+        file_name,
+    }));
+
+    let mut material_id = current_material_id;
+    for entry in &matl.entries.elements {
+        let material_label = entry.material_label.get_string().unwrap();
+        let shader_label = entry.shader_label.get_string().unwrap();
+        material_id += 1;
+        records.push(Box::new(MaterialRecord {
+            matl_id,
+            material_label: material_label.to_string(),
+            shader_label: shader_label.to_string(),
+        }));
+
+        // TODO: The material_id is the same for every entry.
         for attribute in &entry.attributes.elements {
             let param_id = attribute.param_id as u32;
 
             match &attribute.param.data {
                 ssbh_lib::formats::matl::Param::Boolean(val) => {
-                    booleans.push((param_id, material_id, val));
+                    records.push(Box::new(BoolRecord {
+                        param_id,
+                        material_id,
+                        value: *val > 0,
+                    }));
                 }
                 ssbh_lib::formats::matl::Param::Float(val) => {
-                    floats.push((param_id, material_id, *val as f64));
+                    records.push(Box::new(FloatRecord {
+                        param_id,
+                        material_id,
+                        value: *val as f64,
+                    }));
                 }
                 ssbh_lib::formats::matl::Param::Vector4(val) => {
-                    vec4s.push((
+                    records.push(Box::new(Vector4Record {
                         param_id,
                         material_id,
-                        val.x as f64,
-                        val.y as f64,
-                        val.z as f64,
-                        val.w as f64,
-                    ));
+                        x: val.x as f64,
+                        y: val.y as f64,
+                        z: val.z as f64,
+                        w: val.w as f64,
+                    }));
                 }
                 ssbh_lib::formats::matl::Param::MatlString(val) => {
-                    let text = val.get_string().unwrap();
-                    textures.push((param_id, material_id, text));
+                    let text = val.get_string().unwrap().to_string();
+                    records.push(Box::new(TextureRecord {
+                        param_id,
+                        material_id,
+                        text,
+                    }));
                 }
                 ssbh_lib::formats::matl::Param::Sampler(val) => {
-                    samplers.push((
+                    records.push(Box::new(SamplerRecord {
                         param_id,
                         material_id,
-                        val.wraps as u32,
-                        val.wrapt as u32,
-                        val.wrapr as u32,
-                        val.min_filter,
-                        val.mag_filter,
-                        val.unk6,
-                        val.unk7,
-                        val.unk8,
-                        val.unk9,
-                        val.unk10,
-                        val.unk11,
-                        val.unk12,
-                        val.lod_bias as f64,
-                        val.max_anisotropy,
-                    ));
+                        wraps: val.wraps as u32,
+                        wrapt: val.wrapt as u32,
+                        wrapr: val.wrapr as u32,
+                        min_filter: val.min_filter,
+                        mag_filter: val.mag_filter,
+                        unk6: val.unk6,
+                        unk7: val.unk7,
+                        unk8: val.unk8,
+                        unk9: val.unk9,
+                        unk10: val.unk10,
+                        unk11: val.unk11,
+                        unk12: val.unk12,
+                        lod_bias: val.lod_bias as f64,
+                        max_anisotropy: val.max_anisotropy,
+                    }));
                 }
                 ssbh_lib::formats::matl::Param::BlendState(val) => {
-                    blendstates.push((
+                    records.push(Box::new(BlendStateRecord {
                         param_id,
                         material_id,
-                        val.unk1,
-                        val.unk2,
-                        val.blend_factor1,
-                        val.unk4,
-                        val.unk5,
-                        val.blend_factor2,
-                        val.unk7,
-                        val.unk8,
-                        val.unk9,
-                        val.unk10,
-                        val.unk11,
-                        val.unk12,
-                    ));
+                        unk1: val.unk1,
+                        unk2: val.unk2,
+                        blend_factor1: val.blend_factor1,
+                        unk4: val.unk4,
+                        unk5: val.unk5,
+                        blend_factor2: val.blend_factor2,
+                        unk7: val.unk7,
+                        unk8: val.unk8,
+                        unk9: val.unk9,
+                        unk10: val.unk10,
+                        unk11: val.unk11,
+                        unk12: val.unk12,
+                    }));
                 }
                 ssbh_lib::formats::matl::Param::RasterizerState(val) => {
-                    rasterizers.push((
+                    records.push(Box::new(RasterizerRecord {
                         param_id,
                         material_id,
-                        val.fill_mode as u32,
-                        val.cull_mode as u32,
-                        val.depth_bias as f64,
-                        val.unk4 as f64,
-                        val.unk5 as f64,
-                        val.unk6,
-                        val.unk7,
-                        val.unk8 as f64,
-                    ));
+                        fill_mode: val.fill_mode as u32,
+                        cull_mode: val.cull_mode as u32,
+                        depth_bias: val.depth_bias as f64,
+                        unk4: val.unk4 as f64,
+                        unk5: val.unk5 as f64,
+                        unk6: val.unk6,
+                        unk7: val.unk7,
+                        unk8: val.unk8 as f64,
+                    }));
                 }
                 _ => (),
             }
         }
     }
 
-    execute_many(&transaction, INSERT_BOOLEAN, &booleans)?;
-    execute_many(&transaction, INSERT_FLOAT, &floats)?;
-    execute_many(&transaction, INSERT_RASTERIZER, &rasterizers)?;
-    execute_many(&transaction, INSERT_TEXTURE, &textures)?;
-    execute_many(&transaction, INSERT_VECTOR4, &vec4s)?;
-    execute_many(&transaction, INSERT_SAMPLER, &samplers)?;
-    execute_many(&transaction, INSERT_BLEND_STATE, &blendstates)?;
-    Ok(())
+    (matl_id, material_id, records)
 }
 
 fn process_mesh(
-    transaction: &mut Transaction,
     mesh: &ssbh_lib::formats::mesh::Mesh,
     file_name: &str,
+    current_mesh_id: i64,
+    current_mesh_object_id: i64,
+    current_mesh_attribute_id: i64,
     directory_id: i64,
-) -> Result<()> {
-    transaction
-        .prepare_cached(INSERT_MESH)?
-        .execute(params![directory_id, file_name,])?;
-    let mesh_id = transaction.last_insert_rowid();
+) -> (i64, i64, i64, Vec<Box<dyn Insert>>) {
+    let mut records: Vec<Box<dyn Insert>> = Vec::new();
 
+    // TODO: Simpler way to ensure the id gets incremented?
+    // Combine increment with create method?
+    let mesh_id = current_mesh_id + 1;
+    records.push(Box::new(MeshRecord {
+        directory_id,
+        file_name: file_name.to_string(),
+    }));
+
+    let mut mesh_object_id = current_mesh_object_id;
+    let mut mesh_attribute_id = current_mesh_attribute_id;
     for object in &mesh.objects.elements {
-        let mesh_name = object.name.get_string();
+        let mesh_name = object.name.get_string().unwrap().to_string();
         let sub_index = object.sub_index;
-        transaction
-            .prepare_cached(INSERT_MESH_OBJECT)?
-            .execute(params![mesh_id, mesh_name, sub_index])?;
-        let mesh_object_id = transaction.last_insert_rowid();
+        records.push(Box::new(MeshObjectRecord {
+            mesh_id,
+            mesh_name,
+            sub_index,
+        }));
+
+        mesh_object_id += 1;
 
         for attribute in &object.attributes.elements {
-            let attribute_name = attribute.attribute_names.elements[0].get_string();
-            transaction
-                .prepare_cached(INSERT_MESH_ATTRIBUTE)?
-                .execute(params![mesh_object_id, attribute_name])?;
+            let attribute_name = attribute.attribute_names.elements[0]
+                .get_string()
+                .unwrap()
+                .to_string();
+            records.push(Box::new(MeshAttributeRecord {
+                mesh_object_id,
+                attribute_name,
+            }));
+            mesh_attribute_id += 1;
         }
     }
-    Ok(())
+
+    (mesh_id, mesh_object_id, mesh_attribute_id, records)
 }
 
 fn process_modl(
-    transaction: &mut Transaction,
     modl: &ssbh_lib::formats::modl::Modl,
     file_name: &str,
     directory_id: i64,
-) -> Result<()> {
-    transaction
-        .prepare_cached(INSERT_MODL)?
-        .execute(params![directory_id, file_name])?;
-    // TODO: Add modl data.
-    Ok(())
+) -> ModlRecord {
+    // TODO: Add material, mesh, skeleton names
+    ModlRecord {
+        directory_id,
+        file_name: file_name.to_string(),
+    }
 }
 
-fn process_xmb(
-    transaction: &mut Transaction,
-    file_name: &str,
-    xmb: &xmb_lib::XmbFile,
-    directory_id: i64,
-) -> Result<()> {
+fn process_xmb(file_name: &str, xmb: &xmb_lib::XmbFile, directory_id: i64) -> XmbRecord {
     // TODO: Add xmb entry data.
-    transaction
-        .prepare_cached(INSERT_XMB)?
-        .execute(params![directory_id, file_name])?;
-    Ok(())
+    XmbRecord {
+        directory_id,
+        file_name: file_name.to_string(),
+    }
 }
 
+// TODO: Clean up this abomination...
 fn process_ssbh(
-    transaction: &mut Transaction,
     file_name: &str,
     ssbh: &ssbh_lib::Ssbh,
     directory_id: i64,
-) -> Result<(), Box<dyn Error>> {
+
+    // Find a cleaner way to return the current row id.
+    current_matl_id: i64,
+    current_material_id: i64,
+    current_modl_id: i64,
+    current_mesh_id: i64,
+    current_mesh_object_id: i64,
+    current_mesh_attribute_id: i64,
+) -> (i64, i64, i64, i64, i64, i64, Vec<Box<dyn Insert>>) {
     match &ssbh.data {
+        // TODO: modifying the input values would be a more sane solution than returning tuples.
         ssbh_lib::SsbhFile::Matl(matl) => {
-            process_matl(transaction, &matl, file_name, directory_id)?;
+            let (matl_id, material_id, records) = process_matl(
+                &matl,
+                current_matl_id,
+                current_material_id,
+                directory_id,
+                file_name.to_string(),
+            );
+            (
+                matl_id,
+                material_id,
+                current_modl_id,
+                current_mesh_id,
+                current_mesh_object_id,
+                current_mesh_attribute_id,
+                records,
+            )
         }
         ssbh_lib::SsbhFile::Modl(modl) => {
-            process_modl(transaction, &modl, file_name, directory_id)?;
+            // TODO: Finish this method.
+            let record = process_modl(&modl, file_name, directory_id);
+            (
+                current_matl_id,
+                current_material_id,
+                current_modl_id + 1,
+                current_mesh_id,
+                current_mesh_object_id,
+                current_mesh_attribute_id,
+                vec![Box::new(record)],
+            )
         }
         ssbh_lib::SsbhFile::Mesh(mesh) => {
-            process_mesh(transaction, &mesh, file_name, directory_id)?;
+            let (mesh_id, mesh_object_id, mesh_attribute_id, records) = process_mesh(
+                &mesh,
+                file_name,
+                current_mesh_id,
+                current_mesh_object_id,
+                current_mesh_attribute_id,
+                directory_id,
+            );
+            (
+                current_matl_id,
+                current_material_id,
+                current_modl_id,
+                mesh_id,
+                mesh_object_id,
+                mesh_attribute_id,
+                records,
+            )
         }
-        _ => (),
+        _ => (
+            current_matl_id,
+            current_material_id,
+            current_modl_id + 1,
+            current_mesh_id,
+            current_mesh_object_id,
+            current_mesh_attribute_id,
+            Vec::<Box<dyn Insert>>::new(),
+        ),
     }
-    Ok(())
 }
 
 fn insert_directory_get_id(
@@ -863,6 +1267,17 @@ fn write_data_to_database(
     source_folder: &Path,
     directory_id_by_path: &mut HashMap<String, i64>,
 ) -> Result<(), Box<dyn Error>> {
+    // Keep track of the last inserted row id.
+    // Simulate an autoincrementing primary key.
+    // This will need some sort of synchronization
+    // when processing from multiple threads.
+    let mut current_matl_id: i64 = 0;
+    let mut current_material_id: i64 = 0;
+    let mut current_modl_id: i64 = 0;
+    let mut current_mesh_id: i64 = 0;
+    let mut current_mesh_object_id: i64 = 0;
+    let mut current_mesh_attribute_id: i64 = 0;
+
     for (file_path, parsed_file) in parsed_files {
         let file_path = Path::new(file_path);
         let directory_id =
@@ -871,11 +1286,39 @@ fn write_data_to_database(
 
         match parsed_file {
             ParsedFile::Ssbh(ssbh) => match ssbh {
-                Some(ssbh) => process_ssbh(transaction, file_name, &ssbh, directory_id)?,
+                Some(ssbh) => {
+                    let (matl_id, material_id, modl_id, mesh_id, mesh_object_id, mesh_attribute_id, records) = process_ssbh(
+                        file_name,
+                        &ssbh,
+                        directory_id,
+                        current_matl_id,
+                        current_material_id,
+                        current_modl_id,
+                        current_mesh_id,
+                        current_mesh_object_id,
+                        current_mesh_attribute_id
+                    );
+                    current_matl_id = matl_id;
+                    current_material_id = material_id;
+                    current_modl_id = modl_id;
+                    current_mesh_id = mesh_id;
+                    current_mesh_object_id = mesh_object_id;
+                    current_mesh_attribute_id = mesh_attribute_id;
+                    for record in records {
+                        // TODO: Don't unwrap.
+                        record.insert(transaction).unwrap();
+                    }
+                }
+
                 None => continue,
             },
             ParsedFile::Xmb(xmb) => match xmb {
-                Some(xmb) => process_xmb(transaction, file_name, &xmb, directory_id)?,
+                Some(xmb) =>  {
+                    let record = process_xmb(file_name, &xmb, directory_id);
+                    // TODO: Don't unwrap.
+                    record.insert(transaction).unwrap();
+                 }
+
                 None => continue,
             },
         }
@@ -967,7 +1410,6 @@ pub fn create_indexes(connection: &mut Connection) -> Result<()> {
 }
 
 pub fn initialize_database(connection: &mut Connection) -> Result<()> {
-    // connection.execute_batch("PRAGMA journal_mode = OFF;")?;
     let mut transaction = connection.transaction()?;
 
     create_tables(&mut transaction)?;
