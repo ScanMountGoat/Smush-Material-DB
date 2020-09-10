@@ -1,5 +1,6 @@
 use rusqlite::Transaction;
 use rusqlite::{params, Result};
+use std::fmt::Debug;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
@@ -22,56 +23,29 @@ const INSERT_MATL: &str = "INSERT INTO Matl(Directory, FileName) VALUES(?,?)";
 const INSERT_MESH: &str = "INSERT INTO Mesh(Directory, FileName) VALUES(?,?)";
 const INSERT_MESH_OBJECT: &str = "INSERT INTO MeshObject(MeshID, Name, SubIndex) VALUES(?,?,?)";
 
-pub fn last_insert_matl_id() -> i64 {
-    CURRENT_MATL_ID.load(Ordering::SeqCst) as i64
-}
-
-pub fn last_insert_material_id() -> i64 {
-    CURRENT_MATERIAL_ID.load(Ordering::SeqCst) as i64
-}
-
-pub fn last_insert_mesh_id() -> i64 {
-    CURRENT_MESH_ID.load(Ordering::SeqCst) as i64
-}
-
-pub fn last_insert_mesh_object_id() -> i64 {
-    CURRENT_MESH_OBJECT_ID.load(Ordering::SeqCst) as i64
-}
-
-pub fn last_insert_xmb_id() -> i64 {
-    CURRENT_XMB_ID.load(Ordering::SeqCst) as i64
-}
-
-pub fn last_insert_xmb_entry_id() -> i64 {
-    CURRENT_XMB_ENTRY_ID.load(Ordering::SeqCst) as i64
-}
-
-// TODO: Prevent modifying the atomic while new is being called?
-// TODO: Return the value in new?
-// TODO: Can this be done without locks?
-
 // Simulate an autoincrementing primary key.
-// Ensure the order of writes is maintained to preserve foreign key relationships.
-// The first call to ::new() will update the value to 1.
-static CURRENT_MATL_ID: AtomicUsize = AtomicUsize::new(0);
-static CURRENT_MATERIAL_ID: AtomicUsize = AtomicUsize::new(0);
-static CURRENT_MESH_ID: AtomicUsize = AtomicUsize::new(0);
-static CURRENT_MESH_OBJECT_ID: AtomicUsize = AtomicUsize::new(0);
-static CURRENT_XMB_ID: AtomicUsize = AtomicUsize::new(0);
-static CURRENT_XMB_ENTRY_ID: AtomicUsize = AtomicUsize::new(0);
+// Use atomics so no two records receive the same key.
+// The first call to ::create_record() will return the old value of 1.
+static CURRENT_MATL_ID: AtomicUsize = AtomicUsize::new(1);
+static CURRENT_MATERIAL_ID: AtomicUsize = AtomicUsize::new(1);
+static CURRENT_MESH_ID: AtomicUsize = AtomicUsize::new(1);
+static CURRENT_MESH_OBJECT_ID: AtomicUsize = AtomicUsize::new(1);
+static CURRENT_XMB_ID: AtomicUsize = AtomicUsize::new(1);
+static CURRENT_XMB_ENTRY_ID: AtomicUsize = AtomicUsize::new(1);
 
 /// A type that can be converted to SQL params for inserting into a table.
-pub trait Insert {
+pub trait SqlInsert: Sync + Send + Debug {
     fn insert(&self, transaction: &mut Transaction) -> Result<()>;
 }
 
+#[derive(Debug)]
 pub struct BoolRecord {
     pub param_id: u32,
     pub material_id: i64,
     pub value: bool,
 }
 
-impl Insert for BoolRecord {
+impl SqlInsert for BoolRecord {
     fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction
             .prepare_cached(INSERT_BOOLEAN)?
@@ -80,13 +54,14 @@ impl Insert for BoolRecord {
     }
 }
 
+#[derive(Debug)]
 pub struct FloatRecord {
     pub param_id: u32,
     pub material_id: i64,
     pub value: f64,
 }
 
-impl Insert for FloatRecord {
+impl SqlInsert for FloatRecord {
     fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction.prepare_cached(INSERT_FLOAT)?.execute(params![
             self.param_id,
@@ -96,6 +71,8 @@ impl Insert for FloatRecord {
         Ok(())
     }
 }
+
+#[derive(Debug)]
 pub struct RasterizerRecord {
     pub param_id: u32,
     pub material_id: i64,
@@ -109,7 +86,7 @@ pub struct RasterizerRecord {
     pub unk8: f64,
 }
 
-impl Insert for RasterizerRecord {
+impl SqlInsert for RasterizerRecord {
     fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction
             .prepare_cached(INSERT_RASTERIZER)?
@@ -129,6 +106,7 @@ impl Insert for RasterizerRecord {
     }
 }
 
+#[derive(Debug)]
 pub struct BlendStateRecord {
     pub param_id: u32,
     pub material_id: i64,
@@ -146,7 +124,7 @@ pub struct BlendStateRecord {
     pub unk12: u32,
 }
 
-impl Insert for BlendStateRecord {
+impl SqlInsert for BlendStateRecord {
     fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction
             .prepare_cached(INSERT_BLEND_STATE)?
@@ -170,6 +148,7 @@ impl Insert for BlendStateRecord {
     }
 }
 
+#[derive(Debug)]
 pub struct SamplerRecord {
     pub param_id: u32,
     pub material_id: i64,
@@ -189,7 +168,7 @@ pub struct SamplerRecord {
     pub max_anisotropy: u32,
 }
 
-impl Insert for SamplerRecord {
+impl SqlInsert for SamplerRecord {
     fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction
             .prepare_cached(INSERT_SAMPLER)?
@@ -215,6 +194,7 @@ impl Insert for SamplerRecord {
     }
 }
 
+#[derive(Debug)]
 pub struct MaterialRecord {
     pub matl_id: i64,
     pub material_label: String,
@@ -222,17 +202,24 @@ pub struct MaterialRecord {
 }
 
 impl MaterialRecord {
-    pub fn new(matl_id: i64, material_label: String, shader_label: String) -> MaterialRecord {
-        CURRENT_MATERIAL_ID.fetch_add(1, Ordering::SeqCst);
-        MaterialRecord {
-            matl_id,
-            material_label,
-            shader_label,
-        }
+    pub fn create_record(
+        matl_id: i64,
+        material_label: String,
+        shader_label: String,
+    ) -> (i64, MaterialRecord) {
+        let new_id = CURRENT_MATERIAL_ID.fetch_add(1, Ordering::SeqCst);
+        (
+            new_id as i64,
+            MaterialRecord {
+                matl_id,
+                material_label,
+                shader_label,
+            },
+        )
     }
 }
 
-impl Insert for MaterialRecord {
+impl SqlInsert for MaterialRecord {
     fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction
             .prepare_cached(INSERT_MATERIAL)?
@@ -245,13 +232,14 @@ impl Insert for MaterialRecord {
     }
 }
 
+#[derive(Debug)]
 pub struct TextureRecord {
     pub param_id: u32,
     pub material_id: i64,
     pub text: String,
 }
 
-impl Insert for TextureRecord {
+impl SqlInsert for TextureRecord {
     fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction
             .prepare_cached(INSERT_TEXTURE)?
@@ -260,6 +248,7 @@ impl Insert for TextureRecord {
     }
 }
 
+#[derive(Debug)]
 pub struct Vector4Record {
     pub param_id: u32,
     pub material_id: i64,
@@ -269,7 +258,7 @@ pub struct Vector4Record {
     pub w: f64,
 }
 
-impl Insert for Vector4Record {
+impl SqlInsert for Vector4Record {
     fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction
             .prepare_cached(INSERT_VECTOR4)?
@@ -285,22 +274,26 @@ impl Insert for Vector4Record {
     }
 }
 
+#[derive(Debug)]
 pub struct MatlRecord {
     pub directory_id: String,
     pub file_name: String,
 }
 
 impl MatlRecord {
-    pub fn new(directory_id: String, file_name: String) -> MatlRecord {
-        CURRENT_MATL_ID.fetch_add(1, Ordering::SeqCst);
-        MatlRecord {
-            directory_id,
-            file_name,
-        }
+    pub fn create_record(directory_id: String, file_name: String) -> (i64, MatlRecord) {
+        let new_id = CURRENT_MATL_ID.fetch_add(1, Ordering::SeqCst);
+        (
+            new_id as i64,
+            MatlRecord {
+                directory_id,
+                file_name,
+            },
+        )
     }
 }
 
-impl Insert for MatlRecord {
+impl SqlInsert for MatlRecord {
     fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction
             .prepare_cached(INSERT_MATL)?
@@ -309,22 +302,26 @@ impl Insert for MatlRecord {
     }
 }
 
+#[derive(Debug)]
 pub struct XmbRecord {
     pub directory_id: String,
     pub file_name: String,
 }
 
 impl XmbRecord {
-    pub fn new(directory_id: String, file_name: String) -> XmbRecord {
-        CURRENT_XMB_ID.fetch_add(1, Ordering::SeqCst);
-        XmbRecord {
-            directory_id,
-            file_name,
-        }
+    pub fn create_record(directory_id: String, file_name: String) -> (i64, XmbRecord) {
+        let new_id = CURRENT_XMB_ID.fetch_add(1, Ordering::SeqCst);
+        (
+            new_id as i64,
+            XmbRecord {
+                directory_id,
+                file_name,
+            },
+        )
     }
 }
 
-impl Insert for XmbRecord {
+impl SqlInsert for XmbRecord {
     fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction
             .prepare_cached("INSERT INTO Xmb(Directory, FileName) VALUES(?,?)")?
@@ -333,19 +330,20 @@ impl Insert for XmbRecord {
     }
 }
 
+#[derive(Debug)]
 pub struct XmbEntryRecord {
     pub xmb_id: i64,
     pub name: String,
 }
 
 impl XmbEntryRecord {
-    pub fn new(xmb_id: i64, name: String) -> XmbEntryRecord {
-        CURRENT_XMB_ENTRY_ID.fetch_add(1, Ordering::SeqCst);
-        XmbEntryRecord { xmb_id, name }
+    pub fn create_record(xmb_id: i64, name: String) -> (i64, XmbEntryRecord) {
+        let new_id = CURRENT_XMB_ENTRY_ID.fetch_add(1, Ordering::SeqCst);
+        (new_id as i64, XmbEntryRecord { xmb_id, name })
     }
 }
 
-impl Insert for XmbEntryRecord {
+impl SqlInsert for XmbEntryRecord {
     fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction
             .prepare_cached("INSERT INTO XmbEntry(XmbID, Name) VALUES(?,?)")?
@@ -354,23 +352,14 @@ impl Insert for XmbEntryRecord {
     }
 }
 
+#[derive(Debug)]
 pub struct XmbAttributeRecord {
     pub xmb_entry_id: i64,
     pub name: String,
     pub value: String,
 }
 
-impl XmbAttributeRecord {
-    pub fn new(xmb_entry_id: i64, name: String, value: String) -> XmbAttributeRecord {
-        XmbAttributeRecord {
-            xmb_entry_id,
-            name,
-            value,
-        }
-    }
-}
-
-impl Insert for XmbAttributeRecord {
+impl SqlInsert for XmbAttributeRecord {
     fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction
             .prepare_cached("INSERT INTO XmbAttribute(XmbEntryID, Name, Value) VALUES(?,?,?)")?
@@ -379,22 +368,26 @@ impl Insert for XmbAttributeRecord {
     }
 }
 
+#[derive(Debug)]
 pub struct MeshRecord {
     pub directory_id: String,
     pub file_name: String,
 }
 
 impl MeshRecord {
-    pub fn new(directory_id: String, file_name: String) -> MeshRecord {
-        CURRENT_MESH_ID.fetch_add(1, Ordering::SeqCst);
-        MeshRecord {
-            directory_id,
-            file_name,
-        }
+    pub fn create_record(directory_id: String, file_name: String) -> (i64, MeshRecord) {
+        let new_id = CURRENT_MESH_ID.fetch_add(1, Ordering::SeqCst);
+        (
+            new_id as i64,
+            MeshRecord {
+                directory_id,
+                file_name,
+            },
+        )
     }
 }
 
-impl Insert for MeshRecord {
+impl SqlInsert for MeshRecord {
     fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction
             .prepare_cached(INSERT_MESH)?
@@ -403,6 +396,7 @@ impl Insert for MeshRecord {
     }
 }
 
+#[derive(Debug)]
 pub struct ModlRecord {
     pub directory_id: String,
     pub file_name: String,
@@ -412,7 +406,7 @@ pub struct ModlRecord {
 }
 
 impl ModlRecord {
-    pub fn new(
+    pub fn create_record(
         directory_id: String,
         file_name: String,
         model_file_name: String,
@@ -429,7 +423,7 @@ impl ModlRecord {
     }
 }
 
-impl Insert for ModlRecord {
+impl SqlInsert for ModlRecord {
     fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction
             .prepare_cached("INSERT INTO Modl(Directory, FileName, ModelFileName, SkeletonFileName, MaterialFileName) VALUES(?,?,?,?,?)")?
@@ -438,6 +432,7 @@ impl Insert for ModlRecord {
     }
 }
 
+#[derive(Debug)]
 pub struct MeshObjectRecord {
     pub mesh_id: i64,
     pub mesh_name: String,
@@ -445,17 +440,24 @@ pub struct MeshObjectRecord {
 }
 
 impl MeshObjectRecord {
-    pub fn new(mesh_id: i64, mesh_name: String, sub_index: i64) -> MeshObjectRecord {
-        CURRENT_MESH_OBJECT_ID.fetch_add(1, Ordering::SeqCst);
-        MeshObjectRecord {
-            mesh_id,
-            mesh_name,
-            sub_index,
-        }
+    pub fn create_record(
+        mesh_id: i64,
+        mesh_name: String,
+        sub_index: i64,
+    ) -> (i64, MeshObjectRecord) {
+        let new_id = CURRENT_MESH_OBJECT_ID.fetch_add(1, Ordering::SeqCst);
+        (
+            new_id as i64,
+            MeshObjectRecord {
+                mesh_id,
+                mesh_name,
+                sub_index,
+            },
+        )
     }
 }
 
-impl Insert for MeshObjectRecord {
+impl SqlInsert for MeshObjectRecord {
     fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction
             .prepare_cached(INSERT_MESH_OBJECT)?
@@ -464,21 +466,13 @@ impl Insert for MeshObjectRecord {
     }
 }
 
+#[derive(Debug)]
 pub struct MeshAttributeRecord {
     pub mesh_object_id: i64,
     pub attribute_name: String,
 }
 
-impl MeshAttributeRecord {
-    pub fn new(mesh_object_id: i64, attribute_name: String) -> MeshAttributeRecord {
-        MeshAttributeRecord {
-            mesh_object_id,
-            attribute_name,
-        }
-    }
-}
-
-impl Insert for MeshAttributeRecord {
+impl SqlInsert for MeshAttributeRecord {
     fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction
             .prepare_cached(INSERT_MESH_ATTRIBUTE)?

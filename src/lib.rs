@@ -388,8 +388,7 @@ const CREATE_XMB_ENTRY_TABLE: &str = r#"CREATE TABLE "XmbEntry" (
     "ID"	INTEGER NOT NULL UNIQUE,
     "XmbID" INTEGER NOT NULL,
 	"Name"	TEXT NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT),
-	FOREIGN KEY("XmbID") REFERENCES "Xmb"("ID")
+	PRIMARY KEY("ID" AUTOINCREMENT)
 )"#;
 
 const CREATE_XMB_ATTRIBUTE_TABLE: &str = r#"CREATE TABLE "XmbAttribute" (
@@ -397,8 +396,7 @@ const CREATE_XMB_ATTRIBUTE_TABLE: &str = r#"CREATE TABLE "XmbAttribute" (
     "XmbEntryID" INTEGER NOT NULL,
 	"Name"	TEXT NOT NULL,
 	"Value"	TEXT NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT),
-	FOREIGN KEY("XmbEntryID") REFERENCES "XmbEntry"("ID")
+	PRIMARY KEY("ID" AUTOINCREMENT)
 )"#;
 
 const CREATE_MODL_TABLE: &str = r#"CREATE TABLE "Modl" (
@@ -423,16 +421,14 @@ const CREATE_MESH_OBJECT_TABLE: &str = r#"CREATE TABLE "MeshObject" (
     "MeshID" INTEGER NOT NULL,
 	"Name"	TEXT NOT NULL,
 	"SubIndex"	INTEGER NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT),
-	FOREIGN KEY("MeshID") REFERENCES "Mesh"("ID")
+	PRIMARY KEY("ID" AUTOINCREMENT)
 )"#;
 
 const CREATE_MESH_ATTRIBUTE_TABLE: &str = r#"CREATE TABLE "MeshAttribute" (
     "ID"	INTEGER NOT NULL UNIQUE,
     "MeshObjectID" INTEGER NOT NULL,
 	"Name"	TEXT NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT),
-	FOREIGN KEY("MeshObjectID") REFERENCES "MeshObject"("ID")
+	PRIMARY KEY("ID" AUTOINCREMENT)
 )"#;
 
 const CREATE_MATL_TABLE: &str = r#"CREATE TABLE "Matl" (
@@ -447,8 +443,7 @@ const CREATE_MATERIAL_TABLE: &str = r#"CREATE TABLE "Material" (
 	"MatlID"	INTEGER NOT NULL,
 	"MaterialLabel"	TEXT NOT NULL,
 	"ShaderLabel"	TEXT NOT NULL,
-	PRIMARY KEY("ID"),
-	FOREIGN KEY("MatlID") REFERENCES "Matl"("ID")
+	PRIMARY KEY("ID")
 )"#;
 
 const CREATE_VECTOR_TABLE: &str = r#"CREATE TABLE "CustomVectorParam" (
@@ -459,8 +454,7 @@ const CREATE_VECTOR_TABLE: &str = r#"CREATE TABLE "CustomVectorParam" (
 	"Value2"	REAL NOT NULL,
 	"Value3"	REAL NOT NULL,
     "Value4"	REAL NOT NULL,
-    FOREIGN KEY("MaterialID")REFERENCES "Material"("ID"),
-	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID"),
+	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID")
 	PRIMARY KEY("ID" AUTOINCREMENT)
 )"#;
 
@@ -475,8 +469,7 @@ const CREATE_FLOAT_TABLE: &str = r#"CREATE TABLE "CustomFloatParam" (
 	"ParamID"	INTEGER,
 	"MaterialID"	INTEGER NOT NULL,
     "Value"	INTEGER NOT NULL,
-    FOREIGN KEY("MaterialID")REFERENCES "Material"("ID"),
-	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID"),
+	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID")
 	PRIMARY KEY("ID" AUTOINCREMENT)
 )"#;
 
@@ -485,7 +478,6 @@ const CREATE_BOOLEAN_TABLE: &str = r#"CREATE TABLE "CustomBooleanParam" (
 	"ParamID"	INTEGER NOT NULL,
 	"MaterialID"	INTEGER NOT NULL,
     "Value"	INTEGER NOT NULL,
-    FOREIGN KEY("MaterialID")REFERENCES "Material"("ID"),
 	PRIMARY KEY("ID" AUTOINCREMENT),
 	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID")
 )"#;
@@ -495,7 +487,6 @@ const CREATE_TEXTURE_TABLE: &str = r#"CREATE TABLE "Texture" (
 	"ParamID"	INTEGER NOT NULL,
 	"MaterialID"	INTEGER NOT NULL,
     "Value"	TEXT,
-    FOREIGN KEY("MaterialID")REFERENCES "Material"("ID"),
 	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID"),
 	PRIMARY KEY("ID" AUTOINCREMENT)
 )"#;
@@ -516,7 +507,6 @@ const CREATE_BLENDSTATE_TABLE: &str = r#"CREATE TABLE "BlendState" (
 	"Value10"	INTEGER NOT NULL,
 	"Value11"	INTEGER NOT NULL,
     "Value12"	INTEGER NOT NULL,
-    FOREIGN KEY("MaterialID") REFERENCES "Material"("ID"),
 	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID"),
 	PRIMARY KEY("ID" AUTOINCREMENT)
 )"#;
@@ -533,7 +523,6 @@ const CREATE_RASTERIZERSTATE_TABLE: &str = r#"CREATE TABLE "RasterizerState" (
 	"Value6"	INTEGER NOT NULL,
 	"Value7"	INTEGER NOT NULL,
     "Value8"	REAL NOT NULL,
-    FOREIGN KEY("MaterialID") REFERENCES "Material"("ID"),
 	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID"),
 	PRIMARY KEY("ID" AUTOINCREMENT)
 )"#;
@@ -556,29 +545,28 @@ const CREATE_SAMPLER_TABLE: &str = r#"CREATE TABLE "Sampler" (
 	"Value12"	INTEGER NOT NULL,
 	"Value13"	REAL NOT NULL,
     "Value14"	INTEGER NOT NULL,
-    FOREIGN KEY("MaterialID")REFERENCES "Material"("ID"),
 	PRIMARY KEY("ID" AUTOINCREMENT),
 	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID")
 )"#;
 
 fn create_tables(transaction: &mut Transaction) -> Result<()> {
-    transaction.execute(CREATE_PARAM_TABLE, NO_PARAMS).unwrap();
-    transaction.execute(CREATE_MODL_TABLE, NO_PARAMS).unwrap();
-    transaction.execute(CREATE_MESH_TABLE, NO_PARAMS).unwrap();
-    transaction.execute(CREATE_MESH_OBJECT_TABLE, NO_PARAMS).unwrap();
-    transaction.execute(CREATE_MESH_ATTRIBUTE_TABLE, NO_PARAMS).unwrap();
-    transaction.execute(CREATE_MATL_TABLE, NO_PARAMS).unwrap();
-    transaction.execute(CREATE_XMB_TABLE, NO_PARAMS).unwrap();
-    transaction.execute(CREATE_XMB_ENTRY_TABLE, NO_PARAMS).unwrap();
-    transaction.execute(CREATE_XMB_ATTRIBUTE_TABLE, NO_PARAMS).unwrap();
-    transaction.execute(CREATE_MATERIAL_TABLE, NO_PARAMS).unwrap();
-    transaction.execute(CREATE_VECTOR_TABLE, NO_PARAMS).unwrap();
-    transaction.execute(CREATE_FLOAT_TABLE, NO_PARAMS).unwrap();
-    transaction.execute(CREATE_BOOLEAN_TABLE, NO_PARAMS).unwrap();
-    transaction.execute(CREATE_TEXTURE_TABLE, NO_PARAMS).unwrap();
-    transaction.execute(CREATE_BLENDSTATE_TABLE, NO_PARAMS).unwrap();
-    transaction.execute(CREATE_RASTERIZERSTATE_TABLE, NO_PARAMS).unwrap();
-    transaction.execute(CREATE_SAMPLER_TABLE, NO_PARAMS).unwrap();
+    transaction.execute(CREATE_PARAM_TABLE, NO_PARAMS)?;
+    transaction.execute(CREATE_MODL_TABLE, NO_PARAMS)?;
+    transaction.execute(CREATE_MESH_TABLE, NO_PARAMS)?;
+    transaction.execute(CREATE_MESH_OBJECT_TABLE, NO_PARAMS)?;
+    transaction.execute(CREATE_MESH_ATTRIBUTE_TABLE, NO_PARAMS)?;
+    transaction.execute(CREATE_MATL_TABLE, NO_PARAMS)?;
+    transaction.execute(CREATE_XMB_TABLE, NO_PARAMS)?;
+    transaction.execute(CREATE_XMB_ENTRY_TABLE, NO_PARAMS)?;
+    transaction.execute(CREATE_XMB_ATTRIBUTE_TABLE, NO_PARAMS)?;
+    transaction.execute(CREATE_MATERIAL_TABLE, NO_PARAMS)?;
+    transaction.execute(CREATE_VECTOR_TABLE, NO_PARAMS)?;
+    transaction.execute(CREATE_FLOAT_TABLE, NO_PARAMS)?;
+    transaction.execute(CREATE_BOOLEAN_TABLE, NO_PARAMS)?;
+    transaction.execute(CREATE_TEXTURE_TABLE, NO_PARAMS)?;
+    transaction.execute(CREATE_BLENDSTATE_TABLE, NO_PARAMS)?;
+    transaction.execute(CREATE_RASTERIZERSTATE_TABLE, NO_PARAMS)?;
+    transaction.execute(CREATE_SAMPLER_TABLE, NO_PARAMS)?;
 
     Ok(())
 }
@@ -598,20 +586,22 @@ fn process_matl(
     matl: &ssbh_lib::formats::matl::Matl,
     directory_id: String,
     file_name: String,
-) -> Vec<Box<dyn Insert>> {
-    let mut records: Vec<Box<dyn Insert>> = Vec::new();
-    records.push(Box::new(MatlRecord::new(directory_id, file_name)));
-    let matl_id = records::last_insert_matl_id();
+) -> Vec<Box<dyn SqlInsert>> {
+    let mut records: Vec<Box<dyn SqlInsert>> = Vec::new();
+
+    let (matl_id, matl_record) = MatlRecord::create_record(directory_id, file_name);
+    records.push(Box::new(matl_record));
 
     for entry in &matl.entries.elements {
         let material_label = entry.material_label.get_string().unwrap();
         let shader_label = entry.shader_label.get_string().unwrap();
-        records.push(Box::new(MaterialRecord::new(
+
+        let (material_id, material_record) = MaterialRecord::create_record(
             matl_id,
             material_label.to_string(),
             shader_label.to_string(),
-        )));
-        let material_id = last_insert_material_id();
+        );
+        records.push(Box::new(material_record));
 
         for attribute in &entry.attributes.elements {
             let param_id = attribute.param_id as u32;
@@ -713,23 +703,19 @@ fn process_mesh(
     mesh: &ssbh_lib::formats::mesh::Mesh,
     file_name: &str,
     directory_id: String,
-) -> Vec<Box<dyn Insert>> {
-    let mut records: Vec<Box<dyn Insert>> = Vec::new();
+) -> Vec<Box<dyn SqlInsert>> {
+    let mut records: Vec<Box<dyn SqlInsert>> = Vec::new();
 
-    records.push(Box::new(MeshRecord::new(
-        directory_id,
-        file_name.to_string(),
-    )));
-    let mesh_id = last_insert_mesh_id();
+    let (mesh_id, mesh_record) = MeshRecord::create_record(directory_id, file_name.to_string());
+    records.push(Box::new(mesh_record));
 
     for object in &mesh.objects.elements {
         let mesh_name = object.name.get_string().unwrap().to_string();
         let sub_index = object.sub_index;
-        records.push(Box::new(MeshObjectRecord::new(
-            mesh_id, mesh_name, sub_index,
-        )));
 
-        let mesh_object_id = last_insert_mesh_object_id();
+        let (mesh_object_id, mesh_object_record) =
+            MeshObjectRecord::create_record(mesh_id, mesh_name, sub_index);
+        records.push(Box::new(mesh_object_record));
 
         for attribute in &object.attributes.elements {
             let attribute_name = attribute.attribute_names.elements[0]
@@ -753,7 +739,7 @@ fn process_modl(
 ) -> ModlRecord {
     // There could be multiple material filenames but assume just one.
     // Most modl files only reference a single material.
-    ModlRecord::new(
+    ModlRecord::create_record(
         directory_id,
         file_name.to_string(),
         modl.model_file_name.get_string().unwrap().to_string(),
@@ -765,31 +751,38 @@ fn process_modl(
     )
 }
 
-fn process_xmb(file_name: &str, xmb: &xmb_lib::XmbFile, directory: String) -> Vec<Box<dyn Insert>> {
-    let mut records: Vec<Box<dyn Insert>> = Vec::new();
-    records.push(Box::new(XmbRecord::new(
-        directory,
-        file_name.to_string(),
-    )));
-    let xmb_id = last_insert_xmb_id();
+fn process_xmb(
+    file_name: &str,
+    xmb: &xmb_lib::XmbFile,
+    directory: String,
+) -> Vec<Box<dyn SqlInsert>> {
+    let mut records: Vec<Box<dyn SqlInsert>> = Vec::new();
+
+    let (xmb_id, xmb_record) = XmbRecord::create_record(directory, file_name.to_string());
+    records.push(Box::new(xmb_record));
 
     for entry in &xmb.entries {
-        records.push(Box::new(XmbEntryRecord::new(xmb_id, entry.name.clone())));
-        let xmb_entry_id = last_insert_xmb_entry_id();
+        let (xmb_entry_id, entry_record) =
+            XmbEntryRecord::create_record(xmb_id, entry.name.clone());
+        records.push(Box::new(entry_record));
 
         for attribute in &entry.attributes {
-            records.push(Box::new(XmbAttributeRecord::new(
+            records.push(Box::new(XmbAttributeRecord {
                 xmb_entry_id,
-                attribute.0.clone(),
-                attribute.1.clone(),
-            )));
+                name: attribute.0.clone(),
+                value: attribute.1.clone(),
+            }));
         }
     }
 
     records
 }
 
-fn process_ssbh(file_name: &str, ssbh: &ssbh_lib::Ssbh, directory: String) -> Vec<Box<dyn Insert>> {
+fn process_ssbh(
+    file_name: &str,
+    ssbh: &ssbh_lib::Ssbh,
+    directory: String,
+) -> Vec<Box<dyn SqlInsert>> {
     match &ssbh.data {
         ssbh_lib::SsbhFile::Matl(matl) => process_matl(&matl, directory, file_name.to_string()),
         ssbh_lib::SsbhFile::Modl(modl) => {
@@ -797,15 +790,12 @@ fn process_ssbh(file_name: &str, ssbh: &ssbh_lib::Ssbh, directory: String) -> Ve
             vec![Box::new(record)]
         }
         ssbh_lib::SsbhFile::Mesh(mesh) => process_mesh(&mesh, file_name, directory),
-        _ => (Vec::<Box<dyn Insert>>::new()),
+        _ => (Vec::<Box<dyn SqlInsert>>::new()),
     }
 }
 
 /// Get the row and the inserted record if the path has not been added yet.
-fn get_directory(
-    file_path: &Path,
-    source_folder: &Path,
-) -> String {
+fn get_directory(file_path: &Path, source_folder: &Path) -> String {
     // Only store the in game directory structure.
     // ex: "C:\Users\User\root\...\model.numatb" -> "root\...\model.numatb"
     file_path
@@ -835,14 +825,11 @@ fn parse_xmb(path: &Path) -> Option<xmb_lib::XmbFile> {
     }
 }
 
-fn get_records(
-    file_path: &Path,
-    source_folder: &Path,
-) -> Vec<Box<dyn Insert>> {
+fn get_records(file_path: &Path, source_folder: &Path) -> Vec<Box<dyn SqlInsert>> {
     let file_name = file_path.file_name().unwrap().to_str().unwrap();
     let extension = file_path.extension().unwrap().to_str().unwrap();
 
-    let mut records: Vec<Box<dyn Insert>> = Vec::new();
+    let mut records: Vec<Box<dyn SqlInsert>> = Vec::new();
 
     let directory = get_directory(file_path, source_folder);
 
@@ -879,9 +866,10 @@ fn process_files(source_folder: &Path, connection: &mut Connection) -> Result<()
     .build()
     .unwrap()
     .into_iter()
-    .filter_map(Result::ok);
+    .filter_map(Result::ok)
+    .par_bridge();
 
-    let records: Vec<Box<dyn Insert>> = paths_iter
+    let records: Vec<Box<dyn SqlInsert>> = paths_iter
         .map(|p| get_records(p.path(), source_folder))
         .flatten()
         .collect();
@@ -898,7 +886,13 @@ fn process_files(source_folder: &Path, connection: &mut Connection) -> Result<()
     let mut transaction = connection.transaction()?;
 
     for record in &records {
-        record.insert(&mut transaction)?;
+        match record.insert(&mut transaction) {
+            Ok(_) => (),
+            Err(e) => {
+                println!("Error inserting {:?}: {:?}", record, e);
+                break;
+            }
+        }
     }
 
     transaction.commit()?;
@@ -949,6 +943,7 @@ pub fn create_database(source_folder: &Path, database_path: &Path) -> Result<()>
 
     initialize_database(&mut connection)?;
     process_files(&source_folder, &mut connection)?;
+
     create_indexes(&mut connection)?;
 
     Ok(())
