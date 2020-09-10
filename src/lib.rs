@@ -858,46 +858,44 @@ fn parse_xmb(path: &Path) -> Option<xmb_lib::XmbFile> {
     }
 }
 
-fn get_database_data(
-    parsed_files: &Vec<(String, ParsedFile)>,
+fn get_records(
+    parsed_file: &ParsedFile,
+    file_path: &String,
     source_folder: &Path,
+    directory_id_by_path: &mut HashMap<String, i64>,
 ) -> Vec<Box<dyn Insert>> {
-    let mut directory_id_by_path = HashMap::new();
-
     let mut records: Vec<Box<dyn Insert>> = Vec::new();
 
-    for (file_path, parsed_file) in parsed_files {
-        // TODO: Move directory processing elsewhere?
-        let file_path = Path::new(file_path);
-        let (directory_id, directory_record) =
-            insert_directory_get_id(file_path, source_folder, &mut directory_id_by_path);
+    // TODO: Move directory processing elsewhere?
+    let file_path = Path::new(file_path);
+    let (directory_id, directory_record) =
+        insert_directory_get_id(file_path, source_folder, directory_id_by_path);
 
-        // Check for directory changes.
-        match directory_record {
-            Some(record) => records.push(Box::new(record)),
+    // Check for directory changes.
+    match directory_record {
+        Some(record) => records.push(Box::new(record)),
+        None => {}
+    }
+
+    let file_name = file_path.file_name().unwrap().to_str().unwrap();
+
+    match parsed_file {
+        ParsedFile::Ssbh(ssbh) => match ssbh {
+            Some(ssbh) => {
+                let mut ssbh_records = process_ssbh(file_name, &ssbh, directory_id);
+                records.append(&mut ssbh_records);
+            }
+
             None => {}
-        }
+        },
+        ParsedFile::Xmb(xmb) => match xmb {
+            Some(xmb) => {
+                let mut xmb_records = process_xmb(file_name, &xmb, directory_id);
+                records.append(&mut xmb_records);
+            }
 
-        let file_name = file_path.file_name().unwrap().to_str().unwrap();
-
-        match parsed_file {
-            ParsedFile::Ssbh(ssbh) => match ssbh {
-                Some(ssbh) => {
-                    let mut ssbh_records = process_ssbh(file_name, &ssbh, directory_id);
-                    records.append(&mut ssbh_records);
-                }
-
-                None => continue,
-            },
-            ParsedFile::Xmb(xmb) => match xmb {
-                Some(xmb) => {
-                    let mut xmb_records = process_xmb(file_name, &xmb, directory_id);
-                    records.append(&mut xmb_records);
-                }
-
-                None => continue,
-            },
-        }
+            None => {}
+        },
     }
 
     records
@@ -943,7 +941,12 @@ fn process_files(source_folder: &Path, connection: &mut Connection) -> Result<()
     );
 
     let create_records = Instant::now();
-    let records = get_database_data(&parsed_files, source_folder);
+    let mut directory_id_by_path = HashMap::new();
+    let records: Vec<Box<dyn Insert>> = parsed_files
+        .iter()
+        .map(|(path, file)| get_records(&file, path, source_folder, &mut directory_id_by_path))
+        .flatten()
+        .collect();
     println!("Create data: {:?}", create_records.elapsed());
 
     // Perform a single transaction to improve performance.
