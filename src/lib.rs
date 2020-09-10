@@ -804,7 +804,6 @@ fn process_ssbh(file_name: &str, ssbh: &ssbh_lib::Ssbh, directory_id: i64) -> Ve
     match &ssbh.data {
         ssbh_lib::SsbhFile::Matl(matl) => process_matl(&matl, directory_id, file_name.to_string()),
         ssbh_lib::SsbhFile::Modl(modl) => {
-            // TODO: Finish this method.
             let record = process_modl(&modl, file_name, directory_id);
             vec![Box::new(record)]
         }
@@ -859,15 +858,15 @@ fn parse_xmb(path: &Path) -> Option<xmb_lib::XmbFile> {
 }
 
 fn get_records(
-    parsed_file: &ParsedFile,
-    file_path: &String,
+    file_path: &Path,
     source_folder: &Path,
     directory_id_by_path: &mut HashMap<String, i64>,
 ) -> Vec<Box<dyn Insert>> {
+    let file_name = file_path.file_name().unwrap().to_str().unwrap();
+    let extension = file_path.extension().unwrap().to_str().unwrap();
+
     let mut records: Vec<Box<dyn Insert>> = Vec::new();
 
-    // TODO: Move directory processing elsewhere?
-    let file_path = Path::new(file_path);
     let (directory_id, directory_record) =
         insert_directory_get_id(file_path, source_folder, directory_id_by_path);
 
@@ -877,21 +876,20 @@ fn get_records(
         None => {}
     }
 
-    let file_name = file_path.file_name().unwrap().to_str().unwrap();
-
-    match parsed_file {
-        ParsedFile::Ssbh(ssbh) => match ssbh {
-            Some(ssbh) => {
-                let mut ssbh_records = process_ssbh(file_name, &ssbh, directory_id);
-                records.append(&mut ssbh_records);
+    // Assume files that are not XMB files are SSBH.
+    match extension {
+        "xmb" => match parse_xmb(file_path) {
+            Some(xmb) => {
+                let mut xmb_records = process_xmb(file_name, &xmb, directory_id);
+                records.append(&mut xmb_records);
             }
 
             None => {}
         },
-        ParsedFile::Xmb(xmb) => match xmb {
-            Some(xmb) => {
-                let mut xmb_records = process_xmb(file_name, &xmb, directory_id);
-                records.append(&mut xmb_records);
+        _ => match parse_ssbh(file_path) {
+            Some(ssbh) => {
+                let mut ssbh_records = process_ssbh(file_name, &ssbh, directory_id);
+                records.append(&mut ssbh_records);
             }
 
             None => {}
@@ -901,53 +899,33 @@ fn get_records(
     records
 }
 
-enum ParsedFile {
-    Ssbh(Option<ssbh_lib::Ssbh>),
-    Xmb(Option<xmb_lib::XmbFile>),
-}
-
 fn process_files(source_folder: &Path, connection: &mut Connection) -> Result<()> {
-    // TODO: Additional performance gains?
     let parse_duration = Instant::now();
 
-    // TODO: Combine parsing with record creation.
-    // TODO: Don't store all the files in memory.
-    let paths = globwalk::GlobWalkerBuilder::from_patterns(
+    let paths_iter = globwalk::GlobWalkerBuilder::from_patterns(
         source_folder,
         &["*.{numatb,numdlb,numshb,xmb}"],
     )
     .build()
     .unwrap()
     .into_iter()
-    .filter_map(Result::ok)
-    .par_bridge();
+    .filter_map(Result::ok);
 
-    // Parse files in parallel to improve performance.
-    // Assume anything other than XMB is one of the SSBH formats.
-    let parsed_files: Vec<(String, ParsedFile)> = paths
-        .map(|d| {
-            let path_string = d.path().to_str().unwrap().to_string();
-            match d.path().extension().unwrap().to_str().unwrap() {
-                "xmb" => (path_string, ParsedFile::Xmb(parse_xmb(d.path()))),
-                _ => (path_string, ParsedFile::Ssbh(parse_ssbh(d.path()))),
-            }
-        })
+    // TODO: Make the records thread safe so this whole iterator can be enumerated in parallel.
+    let mut directory_id_by_path = HashMap::new();
+
+    // TODO: Store the directory as a string and avoid the dictionary?
+    // TODO: Generate index for the directory.
+    let records: Vec<Box<dyn Insert>> = paths_iter
+        .map(|p| get_records(p.path(), source_folder, &mut directory_id_by_path))
+        .flatten()
         .collect();
 
     println!(
-        "Parse {:?} files: {:?}",
-        parsed_files.len(),
+        "Create {:?} records: {:?}",
+        records.len(),
         parse_duration.elapsed()
     );
-
-    let create_records = Instant::now();
-    let mut directory_id_by_path = HashMap::new();
-    let records: Vec<Box<dyn Insert>> = parsed_files
-        .iter()
-        .map(|(path, file)| get_records(&file, path, source_folder, &mut directory_id_by_path))
-        .flatten()
-        .collect();
-    println!("Create data: {:?}", create_records.elapsed());
 
     // Perform a single transaction to improve performance.
     // This can only be done from a single thread.
