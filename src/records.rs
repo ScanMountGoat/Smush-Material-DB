@@ -18,8 +18,8 @@ VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 const INSERT_MATERIAL: &str = "INSERT INTO Material(MatlID, MaterialLabel, ShaderLabel) 
 VALUES(?,?,?)";
 const INSERT_MESH_ATTRIBUTE: &str = "INSERT INTO MeshAttribute(MeshObjectID, Name) VALUES(?,?)";
-const INSERT_MATL: &str = "INSERT INTO Matl(DirectoryID, FileName) VALUES(?,?)";
-const INSERT_MESH: &str = "INSERT INTO Mesh(DirectoryID, FileName) VALUES(?,?)";
+const INSERT_MATL: &str = "INSERT INTO Matl(Directory, FileName) VALUES(?,?)";
+const INSERT_MESH: &str = "INSERT INTO Mesh(Directory, FileName) VALUES(?,?)";
 const INSERT_MESH_OBJECT: &str = "INSERT INTO MeshObject(MeshID, Name, SubIndex) VALUES(?,?,?)";
 
 pub fn last_insert_matl_id() -> i64 {
@@ -46,10 +46,6 @@ pub fn last_insert_xmb_entry_id() -> i64 {
     CURRENT_XMB_ENTRY_ID.load(Ordering::SeqCst) as i64
 }
 
-pub fn last_insert_directory_id() -> i64 {
-    CURRENT_DIRECTORY_ID.load(Ordering::SeqCst) as i64
-}
-
 // TODO: Prevent modifying the atomic while new is being called?
 // TODO: Return the value in new?
 // TODO: Can this be done without locks?
@@ -63,31 +59,10 @@ static CURRENT_MESH_ID: AtomicUsize = AtomicUsize::new(0);
 static CURRENT_MESH_OBJECT_ID: AtomicUsize = AtomicUsize::new(0);
 static CURRENT_XMB_ID: AtomicUsize = AtomicUsize::new(0);
 static CURRENT_XMB_ENTRY_ID: AtomicUsize = AtomicUsize::new(0);
-static CURRENT_DIRECTORY_ID: AtomicUsize = AtomicUsize::new(0);
 
 /// A type that can be converted to SQL params for inserting into a table.
 pub trait Insert {
     fn insert(&self, transaction: &mut Transaction) -> Result<()>;
-}
-
-pub struct DirectoryRecord {
-    pub path: String,
-}
-
-impl DirectoryRecord {
-    pub fn new(path: String) -> DirectoryRecord {
-        CURRENT_DIRECTORY_ID.fetch_add(1, Ordering::SeqCst);
-        DirectoryRecord { path }
-    }
-}
-
-impl Insert for DirectoryRecord {
-    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
-        transaction
-            .prepare_cached("INSERT INTO Directory(Path) VALUES (?)")?
-            .execute(params![&self.path])?;
-        Ok(())
-    }
 }
 
 pub struct BoolRecord {
@@ -311,12 +286,12 @@ impl Insert for Vector4Record {
 }
 
 pub struct MatlRecord {
-    pub directory_id: i64,
+    pub directory_id: String,
     pub file_name: String,
 }
 
 impl MatlRecord {
-    pub fn new(directory_id: i64, file_name: String) -> MatlRecord {
+    pub fn new(directory_id: String, file_name: String) -> MatlRecord {
         CURRENT_MATL_ID.fetch_add(1, Ordering::SeqCst);
         MatlRecord {
             directory_id,
@@ -335,12 +310,12 @@ impl Insert for MatlRecord {
 }
 
 pub struct XmbRecord {
-    pub directory_id: i64,
+    pub directory_id: String,
     pub file_name: String,
 }
 
 impl XmbRecord {
-    pub fn new(directory_id: i64, file_name: String) -> XmbRecord {
+    pub fn new(directory_id: String, file_name: String) -> XmbRecord {
         CURRENT_XMB_ID.fetch_add(1, Ordering::SeqCst);
         XmbRecord {
             directory_id,
@@ -352,7 +327,7 @@ impl XmbRecord {
 impl Insert for XmbRecord {
     fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction
-            .prepare_cached("INSERT INTO Xmb(DirectoryID, FileName) VALUES(?,?)")?
+            .prepare_cached("INSERT INTO Xmb(Directory, FileName) VALUES(?,?)")?
             .execute(params![self.directory_id, self.file_name])?;
         Ok(())
     }
@@ -405,12 +380,12 @@ impl Insert for XmbAttributeRecord {
 }
 
 pub struct MeshRecord {
-    pub directory_id: i64,
+    pub directory_id: String,
     pub file_name: String,
 }
 
 impl MeshRecord {
-    pub fn new(directory_id: i64, file_name: String) -> MeshRecord {
+    pub fn new(directory_id: String, file_name: String) -> MeshRecord {
         CURRENT_MESH_ID.fetch_add(1, Ordering::SeqCst);
         MeshRecord {
             directory_id,
@@ -429,7 +404,7 @@ impl Insert for MeshRecord {
 }
 
 pub struct ModlRecord {
-    pub directory_id: i64,
+    pub directory_id: String,
     pub file_name: String,
     pub model_file_name: String,
     pub skeleton_file_name: String,
@@ -438,7 +413,7 @@ pub struct ModlRecord {
 
 impl ModlRecord {
     pub fn new(
-        directory_id: i64,
+        directory_id: String,
         file_name: String,
         model_file_name: String,
         skeleton_file_name: String,
@@ -457,7 +432,7 @@ impl ModlRecord {
 impl Insert for ModlRecord {
     fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction
-            .prepare_cached("INSERT INTO Modl(DirectoryID, FileName, ModelFileName, SkeletonFileName, MaterialFileName) VALUES(?,?,?,?,?)")?
+            .prepare_cached("INSERT INTO Modl(Directory, FileName, ModelFileName, SkeletonFileName, MaterialFileName) VALUES(?,?,?,?,?)")?
             .execute(params![self.directory_id, self.file_name, self.model_file_name, self.skeleton_file_name, self.material_file_name])?;
         Ok(())
     }

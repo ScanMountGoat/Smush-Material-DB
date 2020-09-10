@@ -377,18 +377,11 @@ const CUSTOM_PARAM_NAMES: [&str; 366] = [
     "DiffuseLightingAoOffset",
 ];
 
-const CREATE_DIRECTORY_TABLE: &str = r#"CREATE TABLE "Directory" (
-	"ID"	INTEGER NOT NULL UNIQUE,
-	"Path"	TEXT NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT)
-)"#;
-
 const CREATE_XMB_TABLE: &str = r#"CREATE TABLE "Xmb" (
 	"ID"	INTEGER NOT NULL UNIQUE,
 	"FileName"	TEXT NOT NULL,
-	"DirectoryID"	INTEGER NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT),
-	FOREIGN KEY("DirectoryID") REFERENCES "Directory"("ID")
+	"Directory"	TEXT NOT NULL,
+	PRIMARY KEY("ID" AUTOINCREMENT)
 )"#;
 
 const CREATE_XMB_ENTRY_TABLE: &str = r#"CREATE TABLE "XmbEntry" (
@@ -414,17 +407,15 @@ const CREATE_MODL_TABLE: &str = r#"CREATE TABLE "Modl" (
     "ModelFileName" TEXT NOT NULL,
     "SkeletonFileName" TEXT NOT NULL,
     "MaterialFileName" TEXT NOT NULL,
-	"DirectoryID"	INTEGER NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT),
-	FOREIGN KEY("DirectoryID") REFERENCES "Directory"("ID")
+	"Directory"	TEXT NOT NULL,
+	PRIMARY KEY("ID" AUTOINCREMENT)
 )"#;
 
 const CREATE_MESH_TABLE: &str = r#"CREATE TABLE "Mesh" (
 	"ID"	INTEGER NOT NULL UNIQUE,
 	"FileName"	TEXT NOT NULL,
-	"DirectoryID"	INTEGER NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT),
-	FOREIGN KEY("DirectoryID") REFERENCES "Directory"("ID")
+	"Directory"	TEXT NOT NULL,
+	PRIMARY KEY("ID" AUTOINCREMENT)
 )"#;
 
 const CREATE_MESH_OBJECT_TABLE: &str = r#"CREATE TABLE "MeshObject" (
@@ -447,9 +438,8 @@ const CREATE_MESH_ATTRIBUTE_TABLE: &str = r#"CREATE TABLE "MeshAttribute" (
 const CREATE_MATL_TABLE: &str = r#"CREATE TABLE "Matl" (
 	"ID"	INTEGER NOT NULL UNIQUE,
 	"FileName"	TEXT NOT NULL,
-	"DirectoryID"	INTEGER NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT),
-	FOREIGN KEY("DirectoryID") REFERENCES "Directory"("ID")
+	"Directory"	TEXT NOT NULL,
+	PRIMARY KEY("ID" AUTOINCREMENT)
 )"#;
 
 const CREATE_MATERIAL_TABLE: &str = r#"CREATE TABLE "Material" (
@@ -526,7 +516,7 @@ const CREATE_BLENDSTATE_TABLE: &str = r#"CREATE TABLE "BlendState" (
 	"Value10"	INTEGER NOT NULL,
 	"Value11"	INTEGER NOT NULL,
     "Value12"	INTEGER NOT NULL,
-    FOREIGN KEY("MaterialID")REFERENCES "Material"("ID"),
+    FOREIGN KEY("MaterialID") REFERENCES "Material"("ID"),
 	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID"),
 	PRIMARY KEY("ID" AUTOINCREMENT)
 )"#;
@@ -543,7 +533,7 @@ const CREATE_RASTERIZERSTATE_TABLE: &str = r#"CREATE TABLE "RasterizerState" (
 	"Value6"	INTEGER NOT NULL,
 	"Value7"	INTEGER NOT NULL,
     "Value8"	REAL NOT NULL,
-    FOREIGN KEY("MaterialID")REFERENCES "Material"("ID"),
+    FOREIGN KEY("MaterialID") REFERENCES "Material"("ID"),
 	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID"),
 	PRIMARY KEY("ID" AUTOINCREMENT)
 )"#;
@@ -572,24 +562,23 @@ const CREATE_SAMPLER_TABLE: &str = r#"CREATE TABLE "Sampler" (
 )"#;
 
 fn create_tables(transaction: &mut Transaction) -> Result<()> {
-    transaction.execute(CREATE_PARAM_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_DIRECTORY_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_MODL_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_MESH_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_MESH_OBJECT_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_MESH_ATTRIBUTE_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_MATL_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_XMB_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_XMB_ENTRY_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_XMB_ATTRIBUTE_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_MATERIAL_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_VECTOR_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_FLOAT_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_BOOLEAN_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_TEXTURE_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_BLENDSTATE_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_RASTERIZERSTATE_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_SAMPLER_TABLE, NO_PARAMS)?;
+    transaction.execute(CREATE_PARAM_TABLE, NO_PARAMS).unwrap();
+    transaction.execute(CREATE_MODL_TABLE, NO_PARAMS).unwrap();
+    transaction.execute(CREATE_MESH_TABLE, NO_PARAMS).unwrap();
+    transaction.execute(CREATE_MESH_OBJECT_TABLE, NO_PARAMS).unwrap();
+    transaction.execute(CREATE_MESH_ATTRIBUTE_TABLE, NO_PARAMS).unwrap();
+    transaction.execute(CREATE_MATL_TABLE, NO_PARAMS).unwrap();
+    transaction.execute(CREATE_XMB_TABLE, NO_PARAMS).unwrap();
+    transaction.execute(CREATE_XMB_ENTRY_TABLE, NO_PARAMS).unwrap();
+    transaction.execute(CREATE_XMB_ATTRIBUTE_TABLE, NO_PARAMS).unwrap();
+    transaction.execute(CREATE_MATERIAL_TABLE, NO_PARAMS).unwrap();
+    transaction.execute(CREATE_VECTOR_TABLE, NO_PARAMS).unwrap();
+    transaction.execute(CREATE_FLOAT_TABLE, NO_PARAMS).unwrap();
+    transaction.execute(CREATE_BOOLEAN_TABLE, NO_PARAMS).unwrap();
+    transaction.execute(CREATE_TEXTURE_TABLE, NO_PARAMS).unwrap();
+    transaction.execute(CREATE_BLENDSTATE_TABLE, NO_PARAMS).unwrap();
+    transaction.execute(CREATE_RASTERIZERSTATE_TABLE, NO_PARAMS).unwrap();
+    transaction.execute(CREATE_SAMPLER_TABLE, NO_PARAMS).unwrap();
 
     Ok(())
 }
@@ -607,7 +596,7 @@ fn insert_custom_params(transaction: &Transaction) -> Result<()> {
 
 fn process_matl(
     matl: &ssbh_lib::formats::matl::Matl,
-    directory_id: i64,
+    directory_id: String,
     file_name: String,
 ) -> Vec<Box<dyn Insert>> {
     let mut records: Vec<Box<dyn Insert>> = Vec::new();
@@ -723,7 +712,7 @@ fn process_matl(
 fn process_mesh(
     mesh: &ssbh_lib::formats::mesh::Mesh,
     file_name: &str,
-    directory_id: i64,
+    directory_id: String,
 ) -> Vec<Box<dyn Insert>> {
     let mut records: Vec<Box<dyn Insert>> = Vec::new();
 
@@ -760,7 +749,7 @@ fn process_mesh(
 fn process_modl(
     modl: &ssbh_lib::formats::modl::Modl,
     file_name: &str,
-    directory_id: i64,
+    directory_id: String,
 ) -> ModlRecord {
     // There could be multiple material filenames but assume just one.
     // Most modl files only reference a single material.
@@ -776,10 +765,10 @@ fn process_modl(
     )
 }
 
-fn process_xmb(file_name: &str, xmb: &xmb_lib::XmbFile, directory_id: i64) -> Vec<Box<dyn Insert>> {
+fn process_xmb(file_name: &str, xmb: &xmb_lib::XmbFile, directory: String) -> Vec<Box<dyn Insert>> {
     let mut records: Vec<Box<dyn Insert>> = Vec::new();
     records.push(Box::new(XmbRecord::new(
-        directory_id,
+        directory,
         file_name.to_string(),
     )));
     let xmb_id = last_insert_xmb_id();
@@ -800,44 +789,33 @@ fn process_xmb(file_name: &str, xmb: &xmb_lib::XmbFile, directory_id: i64) -> Ve
     records
 }
 
-fn process_ssbh(file_name: &str, ssbh: &ssbh_lib::Ssbh, directory_id: i64) -> Vec<Box<dyn Insert>> {
+fn process_ssbh(file_name: &str, ssbh: &ssbh_lib::Ssbh, directory: String) -> Vec<Box<dyn Insert>> {
     match &ssbh.data {
-        ssbh_lib::SsbhFile::Matl(matl) => process_matl(&matl, directory_id, file_name.to_string()),
+        ssbh_lib::SsbhFile::Matl(matl) => process_matl(&matl, directory, file_name.to_string()),
         ssbh_lib::SsbhFile::Modl(modl) => {
-            let record = process_modl(&modl, file_name, directory_id);
+            let record = process_modl(&modl, file_name, directory);
             vec![Box::new(record)]
         }
-        ssbh_lib::SsbhFile::Mesh(mesh) => process_mesh(&mesh, file_name, directory_id),
+        ssbh_lib::SsbhFile::Mesh(mesh) => process_mesh(&mesh, file_name, directory),
         _ => (Vec::<Box<dyn Insert>>::new()),
     }
 }
 
 /// Get the row and the inserted record if the path has not been added yet.
-fn insert_directory_get_id(
+fn get_directory(
     file_path: &Path,
     source_folder: &Path,
-    directory_id_by_path: &mut HashMap<String, i64>,
-) -> (i64, Option<DirectoryRecord>) {
+) -> String {
     // Only store the in game directory structure.
     // ex: "C:\Users\User\root\...\model.numatb" -> "root\...\model.numatb"
-    let folder_path = file_path
+    file_path
         .parent()
         .unwrap()
         .strip_prefix(source_folder)
         .unwrap()
         .to_str()
         .unwrap()
-        .to_string();
-
-    match directory_id_by_path.get(&folder_path) {
-        Some(directory_id) => (*directory_id, None),
-        None => {
-            let record = DirectoryRecord::new(folder_path.clone());
-            let new_id = last_insert_directory_id();
-            directory_id_by_path.insert(folder_path.clone(), new_id);
-            (new_id, Some(record))
-        }
-    }
+        .to_string()
 }
 
 // Convert to Option as a temporary workaround.
@@ -860,27 +838,19 @@ fn parse_xmb(path: &Path) -> Option<xmb_lib::XmbFile> {
 fn get_records(
     file_path: &Path,
     source_folder: &Path,
-    directory_id_by_path: &mut HashMap<String, i64>,
 ) -> Vec<Box<dyn Insert>> {
     let file_name = file_path.file_name().unwrap().to_str().unwrap();
     let extension = file_path.extension().unwrap().to_str().unwrap();
 
     let mut records: Vec<Box<dyn Insert>> = Vec::new();
 
-    let (directory_id, directory_record) =
-        insert_directory_get_id(file_path, source_folder, directory_id_by_path);
-
-    // Check for directory changes.
-    match directory_record {
-        Some(record) => records.push(Box::new(record)),
-        None => {}
-    }
+    let directory = get_directory(file_path, source_folder);
 
     // Assume files that are not XMB files are SSBH.
     match extension {
         "xmb" => match parse_xmb(file_path) {
             Some(xmb) => {
-                let mut xmb_records = process_xmb(file_name, &xmb, directory_id);
+                let mut xmb_records = process_xmb(file_name, &xmb, directory);
                 records.append(&mut xmb_records);
             }
 
@@ -888,7 +858,7 @@ fn get_records(
         },
         _ => match parse_ssbh(file_path) {
             Some(ssbh) => {
-                let mut ssbh_records = process_ssbh(file_name, &ssbh, directory_id);
+                let mut ssbh_records = process_ssbh(file_name, &ssbh, directory);
                 records.append(&mut ssbh_records);
             }
 
@@ -911,13 +881,8 @@ fn process_files(source_folder: &Path, connection: &mut Connection) -> Result<()
     .into_iter()
     .filter_map(Result::ok);
 
-    // TODO: Make the records thread safe so this whole iterator can be enumerated in parallel.
-    let mut directory_id_by_path = HashMap::new();
-
-    // TODO: Store the directory as a string and avoid the dictionary?
-    // TODO: Generate index for the directory.
     let records: Vec<Box<dyn Insert>> = paths_iter
-        .map(|p| get_records(p.path(), source_folder, &mut directory_id_by_path))
+        .map(|p| get_records(p.path(), source_folder))
         .flatten()
         .collect();
 
