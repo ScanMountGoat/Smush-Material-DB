@@ -919,7 +919,7 @@ enum ParsedFile {
     Xmb(Option<xmb_lib::XmbFile>),
 }
 
-fn process_files(source_folder: &Path, connection: &mut Connection) -> Result<(), Box<dyn Error>> {
+fn process_files(source_folder: &Path, connection: &mut Connection) -> Result<()> {
     // TODO: Additional performance gains?
     let parse_duration = Instant::now();
 
@@ -1003,10 +1003,12 @@ fn initialize_database(connection: &mut Connection) -> Result<()> {
     transaction.commit()
 }
 
-pub fn create_database(source_folder: &Path, database_path: &Path) {
-    let mut connection = Connection::open(database_path).unwrap();
+pub fn create_database(source_folder: &Path, database_path: &Path) -> Result<()> {
+    let mut connection = Connection::open(database_path)?;
 
-    initialize_database(&mut connection).unwrap();
-    process_files(&source_folder, &mut connection).unwrap();
-    create_indexes(&mut connection).unwrap();
+    initialize_database(&mut connection)?;
+    process_files(&source_folder, &mut connection)?;
+    create_indexes(&mut connection)?;
+    
+    Ok(())
 }

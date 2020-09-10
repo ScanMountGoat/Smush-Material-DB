@@ -1,6 +1,5 @@
 use smush_material_db::create_database;
 use std::env;
-use std::fs;
 use std::path::Path;
 use std::time::Instant;
 
@@ -15,10 +14,14 @@ fn main() {
 
     // Overwrite the file if it already exists.
     if database_path.exists() {
-        fs::remove_file(database_path).unwrap();
+        println!("The file {:?} already exists. Please specify a new file or delete the previous one.", database_path);
+        return;
     }
 
     let duration = Instant::now();
-    create_database(source_folder, database_path);
+    match create_database(source_folder, database_path) {
+        Ok(_) => {},
+        Err(e) => println!("Error encountered while creating database: {:?}", e)
+    }
     println!("Total: {:?}", duration.elapsed());
 }
