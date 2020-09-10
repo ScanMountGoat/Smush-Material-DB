@@ -2,7 +2,6 @@ use rayon::prelude::*;
 use rusqlite::Transaction;
 use rusqlite::{params, Connection, Result, NO_PARAMS};
 use std::collections::HashMap;
-use std::error::Error;
 use std::path::Path;
 use std::time::Instant;
 
@@ -392,9 +391,29 @@ const CREATE_XMB_TABLE: &str = r#"CREATE TABLE "Xmb" (
 	FOREIGN KEY("DirectoryID") REFERENCES "Directory"("ID")
 )"#;
 
+const CREATE_XMB_ENTRY_TABLE: &str = r#"CREATE TABLE "XmbEntry" (
+    "ID"	INTEGER NOT NULL UNIQUE,
+    "XmbID" INTEGER NOT NULL,
+	"Name"	TEXT NOT NULL,
+	PRIMARY KEY("ID" AUTOINCREMENT),
+	FOREIGN KEY("XmbID") REFERENCES "Xmb"("ID")
+)"#;
+
+const CREATE_XMB_ATTRIBUTE_TABLE: &str = r#"CREATE TABLE "XmbAttribute" (
+    "ID"	INTEGER NOT NULL UNIQUE,
+    "XmbEntryID" INTEGER NOT NULL,
+	"Name"	TEXT NOT NULL,
+	"Value"	TEXT NOT NULL,
+	PRIMARY KEY("ID" AUTOINCREMENT),
+	FOREIGN KEY("XmbEntryID") REFERENCES "XmbEntry"("ID")
+)"#;
+
 const CREATE_MODL_TABLE: &str = r#"CREATE TABLE "Modl" (
 	"ID"	INTEGER NOT NULL UNIQUE,
-	"FileName"	TEXT NOT NULL,
+    "FileName"	TEXT NOT NULL,
+    "ModelFileName" TEXT NOT NULL,
+    "SkeletonFileName" TEXT NOT NULL,
+    "MaterialFileName" TEXT NOT NULL,
 	"DirectoryID"	INTEGER NOT NULL,
 	PRIMARY KEY("ID" AUTOINCREMENT),
 	FOREIGN KEY("DirectoryID") REFERENCES "Directory"("ID")
@@ -553,6 +572,7 @@ const CREATE_SAMPLER_TABLE: &str = r#"CREATE TABLE "Sampler" (
 )"#;
 
 fn create_tables(transaction: &mut Transaction) -> Result<()> {
+    transaction.execute(CREATE_PARAM_TABLE, NO_PARAMS)?;
     transaction.execute(CREATE_DIRECTORY_TABLE, NO_PARAMS)?;
     transaction.execute(CREATE_MODL_TABLE, NO_PARAMS)?;
     transaction.execute(CREATE_MESH_TABLE, NO_PARAMS)?;
@@ -560,8 +580,9 @@ fn create_tables(transaction: &mut Transaction) -> Result<()> {
     transaction.execute(CREATE_MESH_ATTRIBUTE_TABLE, NO_PARAMS)?;
     transaction.execute(CREATE_MATL_TABLE, NO_PARAMS)?;
     transaction.execute(CREATE_XMB_TABLE, NO_PARAMS)?;
+    transaction.execute(CREATE_XMB_ENTRY_TABLE, NO_PARAMS)?;
+    transaction.execute(CREATE_XMB_ATTRIBUTE_TABLE, NO_PARAMS)?;
     transaction.execute(CREATE_MATERIAL_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_PARAM_TABLE, NO_PARAMS)?;
     transaction.execute(CREATE_VECTOR_TABLE, NO_PARAMS)?;
     transaction.execute(CREATE_FLOAT_TABLE, NO_PARAMS)?;
     transaction.execute(CREATE_BOOLEAN_TABLE, NO_PARAMS)?;
@@ -569,6 +590,7 @@ fn create_tables(transaction: &mut Transaction) -> Result<()> {
     transaction.execute(CREATE_BLENDSTATE_TABLE, NO_PARAMS)?;
     transaction.execute(CREATE_RASTERIZERSTATE_TABLE, NO_PARAMS)?;
     transaction.execute(CREATE_SAMPLER_TABLE, NO_PARAMS)?;
+
     Ok(())
 }
 
@@ -753,19 +775,42 @@ fn process_modl(
     file_name: &str,
     directory_id: i64,
 ) -> ModlRecord {
-    // TODO: Add material, mesh, skeleton names
+    // There could be multiple material filenames but assume just one.
+    // Most modl files only reference a single material.
     ModlRecord {
         directory_id,
         file_name: file_name.to_string(),
+        model_file_name: modl.model_file_name.get_string().unwrap().to_string(),
+        material_file_name: modl.material_file_names.elements[0].get_string().unwrap().to_string(),
+        skeleton_file_name: modl.skeleton_file_name.get_string().unwrap().to_string()
     }
 }
 
-fn process_xmb(file_name: &str, xmb: &xmb_lib::XmbFile, directory_id: i64) -> XmbRecord {
-    // TODO: Add xmb entry data.
-    XmbRecord {
+fn process_xmb(file_name: &str, xmb: &xmb_lib::XmbFile, directory_id: i64,
+    current_xmb_id: &mut i64, current_xmb_entry_id: &mut i64, current_xmb_attribute_id: &mut i64) 
+-> Vec<Box<dyn Insert>> {
+    let mut records: Vec<Box<dyn Insert>> = Vec::new();
+    // TODO: Find a way to prevent incrementing the wrong ID.
+    // Static get function in records module to prevent outside mutability?
+    // Each ::new() function would increment the static ID.
+    // Assume there is only a single database with autoincrement primary keys.
+    records.push(Box::new(XmbRecord {
         directory_id,
-        file_name: file_name.to_string(),
+        file_name: file_name.to_string()
+    }));
+    *current_xmb_id += 1;
+
+    for entry in &xmb.entries {
+        records.push(Box::new(XmbEntryRecord {xmb_id: *current_xmb_id, name: entry.name.clone()}));
+        *current_xmb_entry_id += 1;
+
+        for attribute in &entry.attributes {
+            records.push(Box::new(XmbAttributeRecord {xmb_entry_id: *current_xmb_entry_id, name: attribute.0.clone(), value: attribute.1.clone()}));
+            *current_xmb_attribute_id += 1;
+        }
     }
+
+    records
 }
 
 fn process_ssbh(
@@ -810,6 +855,8 @@ fn insert_directory_get_id(
     row_id: i64,
     directory_id_by_path: &mut HashMap<String, i64>,
 ) -> (i64, Option<DirectoryRecord>) {
+    // Only store the in game directory structure.
+    // ex: "C:\Users\User\root\...\model.numatb" -> "root\...\model.numatb"
     let folder_path = file_path
         .parent()
         .unwrap()
@@ -857,6 +904,9 @@ fn get_database_data(
     let mut current_mesh_id: i64 = 0;
     let mut current_mesh_object_id: i64 = 0;
     let mut current_mesh_attribute_id: i64 = 0;
+    let mut current_xmb_id: i64 = 0;
+    let mut current_xmb_entry_id: i64 = 0;
+    let mut current_xmb_attribute_id: i64 = 0;
     let mut current_directory_id: i64 = 0;
 
     let mut directory_id_by_path = HashMap::new();
@@ -902,8 +952,9 @@ fn get_database_data(
             },
             ParsedFile::Xmb(xmb) => match xmb {
                 Some(xmb) => {
-                    let record = process_xmb(file_name, &xmb, directory_id);
-                    records.push(Box::new(record));
+                    let mut xmb_records = process_xmb(file_name, &xmb, directory_id, 
+                        &mut current_xmb_id, &mut current_xmb_entry_id, &mut current_xmb_attribute_id);
+                    records.append(&mut xmb_records);
                 }
 
                 None => continue,
@@ -923,6 +974,8 @@ fn process_files(source_folder: &Path, connection: &mut Connection) -> Result<()
     // TODO: Additional performance gains?
     let parse_duration = Instant::now();
 
+    // TODO: Combine parsing with record creation.
+    // TODO: Don't store all the files in memory.
     let paths = globwalk::GlobWalkerBuilder::from_patterns(
         source_folder,
         &["*.{numatb,numdlb,numshb,xmb}"],

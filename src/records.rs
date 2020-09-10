@@ -1,6 +1,7 @@
 use rusqlite::Transaction;
 use rusqlite::{params, Result};
 
+// TODO: Hard code these into the functions.
 const INSERT_BOOLEAN: &str =
     "INSERT INTO CustomBooleanParam(ParamID, MaterialID, Value) VALUES(?,?,?)";
 const INSERT_FLOAT: &str = "INSERT INTO CustomFloatParam(ParamID, MaterialID, Value) VALUES(?,?,?)";
@@ -16,8 +17,6 @@ const INSERT_MATERIAL: &str = "INSERT INTO Material(MatlID, MaterialLabel, Shade
 VALUES(?,?,?)";
 const INSERT_MESH_ATTRIBUTE: &str = "INSERT INTO MeshAttribute(MeshObjectID, Name) VALUES(?,?)";
 const INSERT_MATL: &str = "INSERT INTO Matl(DirectoryID, FileName) VALUES(?,?)";
-const INSERT_MODL: &str = "INSERT INTO Modl(DirectoryID, FileName) VALUES(?,?)";
-const INSERT_XMB: &str = "INSERT INTO Xmb(DirectoryID, FileName) VALUES(?,?)";
 const INSERT_MESH: &str = "INSERT INTO Mesh(DirectoryID, FileName) VALUES(?,?)";
 const INSERT_MESH_OBJECT: &str = "INSERT INTO MeshObject(MeshID, Name, SubIndex) VALUES(?,?,?)";
 
@@ -270,8 +269,37 @@ pub struct XmbRecord {
 impl Insert for XmbRecord {
     fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction
-            .prepare_cached(INSERT_XMB)?
+            .prepare_cached("INSERT INTO Xmb(DirectoryID, FileName) VALUES(?,?)")?
             .execute(params![self.directory_id, self.file_name])?;
+        Ok(())
+    }
+}
+
+pub struct XmbEntryRecord {
+    pub xmb_id: i64,
+    pub name: String,
+}
+
+impl Insert for XmbEntryRecord {
+    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
+        transaction
+            .prepare_cached("INSERT INTO XmbEntry(XmbID, Name) VALUES(?,?)")?
+            .execute(params![self.xmb_id, self.name])?;
+        Ok(())
+    }
+}
+
+pub struct XmbAttributeRecord {
+    pub xmb_entry_id: i64,
+    pub name: String,
+    pub value: String,
+}
+
+impl Insert for XmbAttributeRecord {
+    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
+        transaction
+            .prepare_cached("INSERT INTO XmbAttribute(XmbEntryID, Name, Value) VALUES(?,?,?)")?
+            .execute(params![self.xmb_entry_id, self.name, self.value])?;
         Ok(())
     }
 }
@@ -293,13 +321,16 @@ impl Insert for MeshRecord {
 pub struct ModlRecord {
     pub directory_id: i64,
     pub file_name: String,
+    pub model_file_name: String,
+    pub skeleton_file_name: String,
+    pub material_file_name: String
 }
 
 impl Insert for ModlRecord {
     fn insert(&self, transaction: &mut Transaction) -> Result<()> {
         transaction
-            .prepare_cached(INSERT_MODL)?
-            .execute(params![self.directory_id, self.file_name])?;
+            .prepare_cached("INSERT INTO Modl(DirectoryID, FileName, ModelFileName, SkeletonFileName, MaterialFileName) VALUES(?,?,?,?,?)")?
+            .execute(params![self.directory_id, self.file_name, self.model_file_name, self.skeleton_file_name, self.material_file_name])?;
         Ok(())
     }
 }
