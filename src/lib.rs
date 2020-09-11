@@ -1,7 +1,6 @@
 use rayon::prelude::*;
 use rusqlite::Transaction;
 use rusqlite::{params, Connection, Result, NO_PARAMS};
-use std::collections::HashMap;
 use std::path::Path;
 use std::time::Instant;
 
@@ -381,22 +380,24 @@ const CREATE_XMB_TABLE: &str = r#"CREATE TABLE "Xmb" (
 	"ID"	INTEGER NOT NULL UNIQUE,
 	"FileName"	TEXT NOT NULL,
 	"Directory"	TEXT NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT)
+	PRIMARY KEY("ID")
 )"#;
 
 const CREATE_XMB_ENTRY_TABLE: &str = r#"CREATE TABLE "XmbEntry" (
     "ID"	INTEGER NOT NULL UNIQUE,
     "XmbID" INTEGER NOT NULL,
-	"Name"	TEXT NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT)
+    "Name"	TEXT NOT NULL,
+    FOREIGN KEY("XmbID") REFERENCES "Xmb"("ID")
+	PRIMARY KEY("ID")
 )"#;
 
 const CREATE_XMB_ATTRIBUTE_TABLE: &str = r#"CREATE TABLE "XmbAttribute" (
     "ID"	INTEGER NOT NULL UNIQUE,
     "XmbEntryID" INTEGER NOT NULL,
 	"Name"	TEXT NOT NULL,
-	"Value"	TEXT NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT)
+    "Value"	TEXT NOT NULL,
+    FOREIGN KEY("XmbEntryID") REFERENCES "XmbEntry"("ID")
+	PRIMARY KEY("ID")
 )"#;
 
 const CREATE_MODL_TABLE: &str = r#"CREATE TABLE "Modl" (
@@ -406,43 +407,46 @@ const CREATE_MODL_TABLE: &str = r#"CREATE TABLE "Modl" (
     "SkeletonFileName" TEXT NOT NULL,
     "MaterialFileName" TEXT NOT NULL,
 	"Directory"	TEXT NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT)
+	PRIMARY KEY("ID")
 )"#;
 
 const CREATE_MESH_TABLE: &str = r#"CREATE TABLE "Mesh" (
 	"ID"	INTEGER NOT NULL UNIQUE,
 	"FileName"	TEXT NOT NULL,
 	"Directory"	TEXT NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT)
+	PRIMARY KEY("ID")
 )"#;
 
 const CREATE_MESH_OBJECT_TABLE: &str = r#"CREATE TABLE "MeshObject" (
     "ID"	INTEGER NOT NULL UNIQUE,
     "MeshID" INTEGER NOT NULL,
 	"Name"	TEXT NOT NULL,
-	"SubIndex"	INTEGER NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT)
+    "SubIndex"	INTEGER NOT NULL,
+    FOREIGN KEY("MeshID") REFERENCES "Mesh"("ID")
+	PRIMARY KEY("ID")
 )"#;
 
 const CREATE_MESH_ATTRIBUTE_TABLE: &str = r#"CREATE TABLE "MeshAttribute" (
     "ID"	INTEGER NOT NULL UNIQUE,
     "MeshObjectID" INTEGER NOT NULL,
-	"Name"	TEXT NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT)
+    "Name"	TEXT NOT NULL,
+    FOREIGN KEY("MeshObjectID") REFERENCES "MeshObject"("ID")
+	PRIMARY KEY("ID")
 )"#;
 
 const CREATE_MATL_TABLE: &str = r#"CREATE TABLE "Matl" (
 	"ID"	INTEGER NOT NULL UNIQUE,
 	"FileName"	TEXT NOT NULL,
 	"Directory"	TEXT NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT)
+	PRIMARY KEY("ID")
 )"#;
 
 const CREATE_MATERIAL_TABLE: &str = r#"CREATE TABLE "Material" (
 	"ID"	INTEGER NOT NULL UNIQUE,
 	"MatlID"	INTEGER NOT NULL,
 	"MaterialLabel"	TEXT NOT NULL,
-	"ShaderLabel"	TEXT NOT NULL,
+    "ShaderLabel"	TEXT NOT NULL,
+    FOREIGN KEY("MatlID") REFERENCES "Matl"("ID")
 	PRIMARY KEY("ID")
 )"#;
 
@@ -454,14 +458,15 @@ const CREATE_VECTOR_TABLE: &str = r#"CREATE TABLE "CustomVectorParam" (
 	"Value2"	REAL NOT NULL,
 	"Value3"	REAL NOT NULL,
     "Value4"	REAL NOT NULL,
+    FOREIGN KEY("MaterialID") REFERENCES "Material"("ID"),
 	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID")
-	PRIMARY KEY("ID" AUTOINCREMENT)
+	PRIMARY KEY("ID")
 )"#;
 
 const CREATE_PARAM_TABLE: &str = r#"CREATE TABLE "CustomParam" (
 	"ID"	INTEGER NOT NULL UNIQUE,
 	"Name"	TEXT NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT)
+	PRIMARY KEY("ID")
 )"#;
 
 const CREATE_FLOAT_TABLE: &str = r#"CREATE TABLE "CustomFloatParam" (
@@ -469,8 +474,9 @@ const CREATE_FLOAT_TABLE: &str = r#"CREATE TABLE "CustomFloatParam" (
 	"ParamID"	INTEGER,
 	"MaterialID"	INTEGER NOT NULL,
     "Value"	INTEGER NOT NULL,
+    FOREIGN KEY("MaterialID") REFERENCES "Material"("ID"),
 	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID")
-	PRIMARY KEY("ID" AUTOINCREMENT)
+	PRIMARY KEY("ID")
 )"#;
 
 const CREATE_BOOLEAN_TABLE: &str = r#"CREATE TABLE "CustomBooleanParam" (
@@ -478,7 +484,8 @@ const CREATE_BOOLEAN_TABLE: &str = r#"CREATE TABLE "CustomBooleanParam" (
 	"ParamID"	INTEGER NOT NULL,
 	"MaterialID"	INTEGER NOT NULL,
     "Value"	INTEGER NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT),
+    PRIMARY KEY("ID"),
+    FOREIGN KEY("MaterialID") REFERENCES "Material"("ID"),
 	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID")
 )"#;
 
@@ -487,8 +494,9 @@ const CREATE_TEXTURE_TABLE: &str = r#"CREATE TABLE "Texture" (
 	"ParamID"	INTEGER NOT NULL,
 	"MaterialID"	INTEGER NOT NULL,
     "Value"	TEXT,
+    FOREIGN KEY("MaterialID") REFERENCES "Material"("ID"),
 	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID"),
-	PRIMARY KEY("ID" AUTOINCREMENT)
+	PRIMARY KEY("ID")
 )"#;
 
 const CREATE_BLENDSTATE_TABLE: &str = r#"CREATE TABLE "BlendState" (
@@ -507,8 +515,9 @@ const CREATE_BLENDSTATE_TABLE: &str = r#"CREATE TABLE "BlendState" (
 	"Value10"	INTEGER NOT NULL,
 	"Value11"	INTEGER NOT NULL,
     "Value12"	INTEGER NOT NULL,
+    FOREIGN KEY("MaterialID") REFERENCES "Material"("ID"),
 	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID"),
-	PRIMARY KEY("ID" AUTOINCREMENT)
+	PRIMARY KEY("ID")
 )"#;
 
 const CREATE_RASTERIZERSTATE_TABLE: &str = r#"CREATE TABLE "RasterizerState" (
@@ -523,8 +532,9 @@ const CREATE_RASTERIZERSTATE_TABLE: &str = r#"CREATE TABLE "RasterizerState" (
 	"Value6"	INTEGER NOT NULL,
 	"Value7"	INTEGER NOT NULL,
     "Value8"	REAL NOT NULL,
+    FOREIGN KEY("MaterialID") REFERENCES "Material"("ID"),
 	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID"),
-	PRIMARY KEY("ID" AUTOINCREMENT)
+	PRIMARY KEY("ID")
 )"#;
 
 const CREATE_SAMPLER_TABLE: &str = r#"CREATE TABLE "Sampler" (
@@ -545,7 +555,8 @@ const CREATE_SAMPLER_TABLE: &str = r#"CREATE TABLE "Sampler" (
 	"Value12"	INTEGER NOT NULL,
 	"Value13"	REAL NOT NULL,
     "Value14"	INTEGER NOT NULL,
-	PRIMARY KEY("ID" AUTOINCREMENT),
+    PRIMARY KEY("ID"),
+    FOREIGN KEY("MaterialID") REFERENCES "Material"("ID"),
 	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID")
 )"#;
 
@@ -608,88 +619,94 @@ fn process_matl(
 
             match &attribute.param.data {
                 ssbh_lib::formats::matl::Param::Boolean(val) => {
-                    records.push(Box::new(BoolRecord {
-                        param_id,
-                        material_id,
-                        value: *val > 0,
-                    }));
+                    records.push(Box::new(
+                        BoolRecord::create_record(param_id, material_id, *val > 0).1,
+                    ));
                 }
                 ssbh_lib::formats::matl::Param::Float(val) => {
-                    records.push(Box::new(FloatRecord {
-                        param_id,
-                        material_id,
-                        value: *val as f64,
-                    }));
+                    records.push(Box::new(
+                        FloatRecord::create_record(param_id, material_id, *val as f64).1,
+                    ));
                 }
                 ssbh_lib::formats::matl::Param::Vector4(val) => {
-                    records.push(Box::new(Vector4Record {
-                        param_id,
-                        material_id,
-                        x: val.x as f64,
-                        y: val.y as f64,
-                        z: val.z as f64,
-                        w: val.w as f64,
-                    }));
+                    records.push(Box::new(
+                        Vector4Record::create_record(
+                            param_id,
+                            material_id,
+                            val.x as f64,
+                            val.y as f64,
+                            val.z as f64,
+                            val.w as f64,
+                        )
+                        .1,
+                    ));
                 }
                 ssbh_lib::formats::matl::Param::MatlString(val) => {
                     let text = val.get_string().unwrap().to_string();
-                    records.push(Box::new(TextureRecord {
-                        param_id,
-                        material_id,
-                        text,
-                    }));
+                    records.push(Box::new(
+                        TextureRecord::create_record(param_id, material_id, text).1,
+                    ));
                 }
                 ssbh_lib::formats::matl::Param::Sampler(val) => {
-                    records.push(Box::new(SamplerRecord {
-                        param_id,
-                        material_id,
-                        wraps: val.wraps as u32,
-                        wrapt: val.wrapt as u32,
-                        wrapr: val.wrapr as u32,
-                        min_filter: val.min_filter,
-                        mag_filter: val.mag_filter,
-                        unk6: val.unk6,
-                        unk7: val.unk7,
-                        unk8: val.unk8,
-                        unk9: val.unk9,
-                        unk10: val.unk10,
-                        unk11: val.unk11,
-                        unk12: val.unk12,
-                        lod_bias: val.lod_bias as f64,
-                        max_anisotropy: val.max_anisotropy,
-                    }));
+                    records.push(Box::new(
+                        SamplerRecord::create_record(
+                            param_id,
+                            material_id,
+                            val.wraps as u32,
+                            val.wrapt as u32,
+                            val.wrapr as u32,
+                            val.min_filter,
+                            val.mag_filter,
+                            val.unk6,
+                            val.unk7,
+                            val.unk8,
+                            val.unk9,
+                            val.unk10,
+                            val.unk11,
+                            val.unk12,
+                            val.lod_bias as f64,
+                            val.max_anisotropy,
+                        )
+                        .1,
+                    ));
                 }
                 ssbh_lib::formats::matl::Param::BlendState(val) => {
-                    records.push(Box::new(BlendStateRecord {
-                        param_id,
-                        material_id,
-                        unk1: val.unk1,
-                        unk2: val.unk2,
-                        blend_factor1: val.blend_factor1,
-                        unk4: val.unk4,
-                        unk5: val.unk5,
-                        blend_factor2: val.blend_factor2,
-                        unk7: val.unk7,
-                        unk8: val.unk8,
-                        unk9: val.unk9,
-                        unk10: val.unk10,
-                        unk11: val.unk11,
-                        unk12: val.unk12,
-                    }));
+                    records.push(Box::new(
+                        BlendStateRecord::create_record(
+                            param_id,
+                            material_id,
+                            val.unk1,
+                            val.unk2,
+                            val.blend_factor1,
+                            val.unk4,
+                            val.unk5,
+                            val.blend_factor2,
+                            val.unk7,
+                            val.unk8,
+                            val.unk9,
+                            val.unk10,
+                            val.unk11,
+                            val.unk12,
+                        )
+                        .1,
+                    ));
                 }
                 ssbh_lib::formats::matl::Param::RasterizerState(val) => {
-                    records.push(Box::new(RasterizerRecord {
-                        param_id,
-                        material_id,
-                        fill_mode: val.fill_mode as u32,
-                        cull_mode: val.cull_mode as u32,
-                        depth_bias: val.depth_bias as f64,
-                        unk4: val.unk4 as f64,
-                        unk5: val.unk5 as f64,
-                        unk6: val.unk6,
-                        unk7: val.unk7,
-                        unk8: val.unk8 as f64,
-                    }));
+                    records.push(Box::new(
+                        RasterizerRecord::create_record(
+                            param_id,
+                            material_id,
+                            val.fill_mode as u32,
+                            val.cull_mode as u32,
+                            val.depth_bias as f64,
+                            val.unk4 as f64,
+                            val.unk5 as f64,
+                            val.unk6,
+                            val.unk7,
+                            val.unk8 as f64,
+                        )
+                        .1,
+                    ));
                 }
                 _ => (),
             }
@@ -722,10 +739,9 @@ fn process_mesh(
                 .get_string()
                 .unwrap()
                 .to_string();
-            records.push(Box::new(MeshAttributeRecord {
-                mesh_object_id,
-                attribute_name,
-            }));
+            records.push(Box::new(
+                MeshAttributeRecord::create_record(mesh_object_id, attribute_name).1,
+            ));
         }
     }
 
@@ -749,6 +765,7 @@ fn process_modl(
             .to_string(),
         modl.skeleton_file_name.get_string().unwrap().to_string(),
     )
+    .1
 }
 
 fn process_xmb(
@@ -767,11 +784,14 @@ fn process_xmb(
         records.push(Box::new(entry_record));
 
         for attribute in &entry.attributes {
-            records.push(Box::new(XmbAttributeRecord {
-                xmb_entry_id,
-                name: attribute.0.clone(),
-                value: attribute.1.clone(),
-            }));
+            records.push(Box::new(
+                XmbAttributeRecord::create_record(
+                    xmb_entry_id,
+                    attribute.0.clone(),
+                    attribute.1.clone(),
+                )
+                .1,
+            ));
         }
     }
 
