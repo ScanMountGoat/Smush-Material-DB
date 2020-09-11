@@ -966,5 +966,8 @@ pub fn create_database(source_folder: &Path, database_path: &Path) -> Result<()>
 
     create_indexes(&mut connection)?;
 
+    // Reduce the amount of space used by the file on disk.
+    connection.execute_batch("VACUUM;")?;
+
     Ok(())
 }
