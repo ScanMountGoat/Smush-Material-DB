@@ -7,8 +7,8 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ssbh_lib = { path = "../ssbh_lib" }
-xmb_lib = { path = "../xmb_lib" }
+ssbh_lib = { git = "https://github.com/ultimate-research/ssbh_lib" }
+xmb_lib = { git = "https://github.com/ultimate-research/xmb_lib" }
 globwalk = "0.8.0"
 rusqlite = { version = "0.24.0", features = ["bundled"] }
 rayon = "1.4.0"
