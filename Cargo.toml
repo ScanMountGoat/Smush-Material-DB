@@ -12,6 +12,7 @@ xmb_lib = { git = "https://github.com/ultimate-research/xmb_lib" }
 globwalk = "0.8.0"
 rusqlite = { version = "0.24.0", features = ["bundled"] }
 rayon = "1.4.0"
+sqlinsert_derive = { path = "sqlinsert_derive" }
 
 [profile.release]
 debug = 1

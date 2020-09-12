@@ -4,6 +4,9 @@ use std::fmt::Debug;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
+extern crate sqlinsert_derive;
+use sqlinsert_derive::SqlInsert;
+
 // Simulate an autoincrementing primary key.
 // Use atomics so no two records receive the same key.
 static LAST_BOOL_ID: AtomicUsize = AtomicUsize::new(0);
@@ -32,7 +35,8 @@ pub trait SqlInsert: Sync + Send + Debug {
     fn insert(&self, transaction: &mut Transaction) -> Result<()>;
 }
 
-#[derive(Debug)]
+#[derive(SqlInsert, Debug)]
+#[table("CustomBooleanParam")]
 pub struct BoolRecord {
     id: i64,
     param_id: u32,
@@ -55,23 +59,8 @@ impl BoolRecord {
     }
 }
 
-impl SqlInsert for BoolRecord {
-    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
-        transaction
-            .prepare_cached(
-                "INSERT INTO CustomBooleanParam(ID, ParamID, MaterialID, Value) VALUES(?,?,?,?)",
-            )?
-            .execute(params![
-                self.id,
-                self.param_id,
-                self.material_id,
-                self.value
-            ])?;
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
+#[derive(SqlInsert, Debug)]
+#[table("CustomFloatParam")]
 pub struct FloatRecord {
     pub id: i64,
     pub param_id: u32,
@@ -94,23 +83,8 @@ impl FloatRecord {
     }
 }
 
-impl SqlInsert for FloatRecord {
-    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
-        transaction
-            .prepare_cached(
-                "INSERT INTO CustomFloatParam(ID, ParamID, MaterialID, Value) VALUES(?,?,?,?)",
-            )?
-            .execute(params![
-                self.id,
-                self.param_id,
-                self.material_id,
-                self.value
-            ])?;
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
+#[derive(SqlInsert, Debug)]
+#[table("RasterizerState")]
 pub struct RasterizerRecord {
     id: i64,
     param_id: u32,
@@ -158,28 +132,8 @@ impl RasterizerRecord {
     }
 }
 
-impl SqlInsert for RasterizerRecord {
-    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
-        transaction
-            .prepare_cached("INSERT INTO RasterizerState(ID, ParamID, MaterialID, Value1, Value2, Value3, Value4, Value5, Value6, Value7, Value8) VALUES(?,?,?,?,?,?,?,?,?,?,?)")?
-            .execute(params![
-                self.id,
-                self.param_id,
-                self.material_id,
-                self.fill_mode,
-                self.cull_mode,
-                self.depth_bias,
-                self.unk4,
-                self.unk5,
-                self.unk6,
-                self.unk7,
-                self.unk8,
-            ])?;
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
+#[derive(SqlInsert, Debug)]
+#[table("BlendState")]
 pub struct BlendStateRecord {
     id: i64,
     param_id: u32,
@@ -239,32 +193,8 @@ impl BlendStateRecord {
     }
 }
 
-impl SqlInsert for BlendStateRecord {
-    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
-        transaction
-            .prepare_cached("INSERT INTO BlendState(ID, ParamID, MaterialID, Value1, Value2, Value3, Value4, Value5, Value6, Value7, Value8, Value9, Value10, Value11, Value12) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")?
-            .execute(params![
-                self.id,
-                self.param_id,
-                self.material_id,
-                self.unk1,
-                self.unk2,
-                self.blend_factor1,
-                self.unk4,
-                self.unk5,
-                self.blend_factor2,
-                self.unk7,
-                self.unk8,
-                self.unk9,
-                self.unk10,
-                self.unk11,
-                self.unk12
-            ])?;
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
+#[derive(SqlInsert, Debug)]
+#[table("Sampler")]
 pub struct SamplerRecord {
     id: i64,
     param_id: u32,
@@ -330,34 +260,8 @@ impl SamplerRecord {
     }
 }
 
-impl SqlInsert for SamplerRecord {
-    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
-        transaction
-            .prepare_cached("INSERT INTO Sampler(ID, ParamID, MaterialID, Value1, Value2, Value3, Value4, Value5, Value6, Value7, Value8, Value9, Value10, Value11, Value12, Value13, Value14) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")?
-            .execute(params![
-                self.id,
-                self.param_id,
-                self.material_id,
-                self.wraps,
-                self.wrapt,
-                self.wrapr,
-                self.min_filter,
-                self.mag_filter,
-                self.unk6,
-                self.unk7,
-                self.unk8,
-                self.unk9,
-                self.unk10,
-                self.unk11,
-                self.unk12,
-                self.lod_bias,
-                self.max_anisotropy
-            ])?;
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
+#[derive(SqlInsert, Debug)]
+#[table("Material")]
 pub struct MaterialRecord {
     id: i64,
     matl_id: i64,
@@ -384,28 +288,13 @@ impl MaterialRecord {
     }
 }
 
-impl SqlInsert for MaterialRecord {
-    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
-        transaction
-            .prepare_cached(
-                "INSERT INTO Material(ID, MatlID, MaterialLabel, ShaderLabel) VALUES(?,?,?,?)",
-            )?
-            .execute(params![
-                self.id,
-                self.matl_id,
-                self.material_label,
-                &self.shader_label
-            ])?;
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
+#[derive(SqlInsert, Debug)]
+#[table("Texture")]
 pub struct TextureRecord {
     id: i64,
     param_id: u32,
     material_id: i64,
-    text: String,
+    value: String,
 }
 
 impl TextureRecord {
@@ -417,27 +306,14 @@ impl TextureRecord {
                 id,
                 param_id,
                 material_id,
-                text,
+                value: text,
             },
         )
     }
 }
 
-impl SqlInsert for TextureRecord {
-    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
-        transaction
-            .prepare_cached("INSERT INTO Texture(ID, ParamID, MaterialID, Value) VALUES(?,?,?,?)")?
-            .execute(params![
-                self.id,
-                self.param_id,
-                self.material_id,
-                &self.text
-            ])?;
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
+#[derive(SqlInsert, Debug)]
+#[table("CustomVectorParam")]
 pub struct Vector4Record {
     id: i64,
     param_id: u32,
@@ -473,85 +349,53 @@ impl Vector4Record {
     }
 }
 
-impl SqlInsert for Vector4Record {
-    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
-        transaction
-            .prepare_cached("INSERT INTO CustomVectorParam(ID, ParamID, MaterialID, Value1, Value2, Value3, Value4) VALUES(?,?,?,?,?,?,?)")?
-            .execute(params![
-                self.id,
-                self.param_id,
-                self.material_id,
-                self.x,
-                self.y,
-                self.z,
-                self.w
-            ])?;
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
+#[derive(SqlInsert, Debug)]
+#[table("Matl")]
 pub struct MatlRecord {
     id: i64,
-    directory_id: String,
+    directory: String,
     file_name: String,
 }
 
 impl MatlRecord {
-    pub fn create_record(directory_id: String, file_name: String) -> (i64, MatlRecord) {
+    pub fn create_record(directory: String, file_name: String) -> (i64, MatlRecord) {
         let id = LAST_MATL_ID.fetch_add(1, Ordering::Relaxed) as i64;
         (
             id as i64,
             MatlRecord {
                 id,
-                directory_id,
+                directory,
                 file_name,
             },
         )
     }
 }
 
-impl SqlInsert for MatlRecord {
-    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
-        transaction
-            .prepare_cached("INSERT INTO Matl(ID, Directory, FileName) VALUES(?,?,?)")?
-            .execute(params![self.id, self.directory_id, self.file_name])?;
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
+#[derive(SqlInsert, Debug)]
+#[table("Xmb")]
 pub struct XmbRecord {
     id: i64,
-    directory_id: String,
+    directory: String,
     file_name: String,
 }
 
 impl XmbRecord {
-    pub fn create_record(directory_id: String, file_name: String) -> (i64, XmbRecord) {
+    pub fn create_record(directory: String, file_name: String) -> (i64, XmbRecord) {
         // TODO: change ordering to relaxed?
         let id = LAST_XMB_ID.fetch_add(1, Ordering::Relaxed) as i64;
         (
             id,
             XmbRecord {
                 id,
-                directory_id,
+                directory,
                 file_name,
             },
         )
     }
 }
 
-impl SqlInsert for XmbRecord {
-    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
-        transaction
-            .prepare_cached("INSERT INTO Xmb(ID, Directory, FileName) VALUES(?,?,?)")?
-            .execute(params![self.id, self.directory_id, self.file_name])?;
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
+#[derive(SqlInsert, Debug)]
+#[table("XmbEntry")]
 pub struct XmbEntryRecord {
     id: i64,
     xmb_id: i64,
@@ -565,16 +409,8 @@ impl XmbEntryRecord {
     }
 }
 
-impl SqlInsert for XmbEntryRecord {
-    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
-        transaction
-            .prepare_cached("INSERT INTO XmbEntry(ID, XmbID, Name) VALUES(?,?,?)")?
-            .execute(params![self.id, self.xmb_id, self.name])?;
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
+#[derive(SqlInsert, Debug)]
+#[table("XmbAttribute")]
 pub struct XmbAttributeRecord {
     id: i64,
     xmb_entry_id: i64,
@@ -601,51 +437,33 @@ impl XmbAttributeRecord {
     }
 }
 
-impl SqlInsert for XmbAttributeRecord {
-    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
-        transaction
-            .prepare_cached(
-                "INSERT INTO XmbAttribute(ID, XmbEntryID, Name, Value) VALUES(?,?,?,?)",
-            )?
-            .execute(params![self.id, self.xmb_entry_id, self.name, self.value])?;
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
+#[derive(SqlInsert, Debug)]
+#[table("Mesh")]
 pub struct MeshRecord {
     id: i64,
-    directory_id: String,
+    directory: String,
     file_name: String,
 }
 
 impl MeshRecord {
-    pub fn create_record(directory_id: String, file_name: String) -> (i64, MeshRecord) {
+    pub fn create_record(directory: String, file_name: String) -> (i64, MeshRecord) {
         let id = LAST_MESH_ID.fetch_add(1, Ordering::Relaxed) as i64;
         (
             id,
             MeshRecord {
                 id,
-                directory_id,
+                directory,
                 file_name,
             },
         )
     }
 }
 
-impl SqlInsert for MeshRecord {
-    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
-        transaction
-            .prepare_cached("INSERT INTO Mesh(ID, Directory, FileName) VALUES(?,?,?)")?
-            .execute(params![self.id, self.directory_id, self.file_name])?;
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
+#[derive(SqlInsert, Debug)]
+#[table("Modl")]
 pub struct ModlRecord {
     id: i64,
-    directory_id: String,
+    directory: String,
     file_name: String,
     model_file_name: String,
     skeleton_file_name: String,
@@ -654,7 +472,7 @@ pub struct ModlRecord {
 
 impl ModlRecord {
     pub fn create_record(
-        directory_id: String,
+        directory: String,
         file_name: String,
         model_file_name: String,
         skeleton_file_name: String,
@@ -665,7 +483,7 @@ impl ModlRecord {
             id,
             ModlRecord {
                 id,
-                directory_id,
+                directory,
                 file_name,
                 model_file_name,
                 skeleton_file_name,
@@ -675,20 +493,12 @@ impl ModlRecord {
     }
 }
 
-impl SqlInsert for ModlRecord {
-    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
-        transaction
-            .prepare_cached("INSERT INTO Modl(ID, Directory, FileName, ModelFileName, SkeletonFileName, MaterialFileName) VALUES(?,?,?,?,?,?)")?
-            .execute(params![self.id, self.directory_id, self.file_name, self.model_file_name, self.skeleton_file_name, self.material_file_name])?;
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
+#[derive(SqlInsert, Debug)]
+#[table("MeshObject")]
 pub struct MeshObjectRecord {
     id: i64,
     mesh_id: i64,
-    mesh_name: String,
+    name: String,
     sub_index: i64,
 }
 
@@ -704,32 +514,19 @@ impl MeshObjectRecord {
             MeshObjectRecord {
                 id,
                 mesh_id,
-                mesh_name,
+                name: mesh_name,
                 sub_index,
             },
         )
     }
 }
 
-impl SqlInsert for MeshObjectRecord {
-    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
-        transaction
-            .prepare_cached("INSERT INTO MeshObject(ID, MeshID, Name, SubIndex) VALUES(?,?,?,?)")?
-            .execute(params![
-                self.id,
-                self.mesh_id,
-                self.mesh_name,
-                self.sub_index
-            ])?;
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
+#[derive(SqlInsert, Debug)]
+#[table("MeshAttribute")]
 pub struct MeshAttributeRecord {
     id: i64,
     mesh_object_id: i64,
-    attribute_name: String,
+    name: String,
 }
 
 impl MeshAttributeRecord {
@@ -743,17 +540,8 @@ impl MeshAttributeRecord {
             MeshAttributeRecord {
                 id,
                 mesh_object_id,
-                attribute_name,
+                name: attribute_name,
             },
         )
-    }
-}
-
-impl SqlInsert for MeshAttributeRecord {
-    fn insert(&self, transaction: &mut Transaction) -> Result<()> {
-        transaction
-            .prepare_cached("INSERT INTO MeshAttribute(ID, MeshObjectID, Name) VALUES(?,?,?)")?
-            .execute(params![self.id, self.mesh_object_id, self.attribute_name])?;
-        Ok(())
     }
 }

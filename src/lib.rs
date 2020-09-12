@@ -377,187 +377,187 @@ const CUSTOM_PARAM_NAMES: [&str; 366] = [
 ];
 
 const CREATE_XMB_TABLE: &str = r#"CREATE TABLE "Xmb" (
-	"ID"	INTEGER NOT NULL UNIQUE,
+	"Id"	INTEGER NOT NULL UNIQUE,
 	"FileName"	TEXT NOT NULL,
 	"Directory"	TEXT NOT NULL,
-	PRIMARY KEY("ID")
+	PRIMARY KEY("Id")
 )"#;
 
 const CREATE_XMB_ENTRY_TABLE: &str = r#"CREATE TABLE "XmbEntry" (
-    "ID"	INTEGER NOT NULL UNIQUE,
-    "XmbID" INTEGER NOT NULL,
+    "Id"	INTEGER NOT NULL UNIQUE,
+    "XmbId" INTEGER NOT NULL,
     "Name"	TEXT NOT NULL,
-    FOREIGN KEY("XmbID") REFERENCES "Xmb"("ID")
-	PRIMARY KEY("ID")
+    FOREIGN KEY("XmbId") REFERENCES "Xmb"("Id")
+	PRIMARY KEY("Id")
 )"#;
 
 const CREATE_XMB_ATTRIBUTE_TABLE: &str = r#"CREATE TABLE "XmbAttribute" (
-    "ID"	INTEGER NOT NULL UNIQUE,
-    "XmbEntryID" INTEGER NOT NULL,
+    "Id"	INTEGER NOT NULL UNIQUE,
+    "XmbEntryId" INTEGER NOT NULL,
 	"Name"	TEXT NOT NULL,
     "Value"	TEXT NOT NULL,
-    FOREIGN KEY("XmbEntryID") REFERENCES "XmbEntry"("ID")
-	PRIMARY KEY("ID")
+    FOREIGN KEY("XmbEntryId") REFERENCES "XmbEntry"("Id")
+	PRIMARY KEY("Id")
 )"#;
 
 const CREATE_MODL_TABLE: &str = r#"CREATE TABLE "Modl" (
-	"ID"	INTEGER NOT NULL UNIQUE,
+	"Id"	INTEGER NOT NULL UNIQUE,
     "FileName"	TEXT NOT NULL,
     "ModelFileName" TEXT NOT NULL,
     "SkeletonFileName" TEXT NOT NULL,
     "MaterialFileName" TEXT NOT NULL,
 	"Directory"	TEXT NOT NULL,
-	PRIMARY KEY("ID")
+	PRIMARY KEY("Id")
 )"#;
 
 const CREATE_MESH_TABLE: &str = r#"CREATE TABLE "Mesh" (
-	"ID"	INTEGER NOT NULL UNIQUE,
+	"Id"	INTEGER NOT NULL UNIQUE,
 	"FileName"	TEXT NOT NULL,
 	"Directory"	TEXT NOT NULL,
-	PRIMARY KEY("ID")
+	PRIMARY KEY("Id")
 )"#;
 
 const CREATE_MESH_OBJECT_TABLE: &str = r#"CREATE TABLE "MeshObject" (
-    "ID"	INTEGER NOT NULL UNIQUE,
-    "MeshID" INTEGER NOT NULL,
+    "Id"	INTEGER NOT NULL UNIQUE,
+    "MeshId" INTEGER NOT NULL,
 	"Name"	TEXT NOT NULL,
     "SubIndex"	INTEGER NOT NULL,
-    FOREIGN KEY("MeshID") REFERENCES "Mesh"("ID")
-	PRIMARY KEY("ID")
+    FOREIGN KEY("MeshId") REFERENCES "Mesh"("Id")
+	PRIMARY KEY("Id")
 )"#;
 
 const CREATE_MESH_ATTRIBUTE_TABLE: &str = r#"CREATE TABLE "MeshAttribute" (
-    "ID"	INTEGER NOT NULL UNIQUE,
-    "MeshObjectID" INTEGER NOT NULL,
+    "Id"	INTEGER NOT NULL UNIQUE,
+    "MeshObjectId" INTEGER NOT NULL,
     "Name"	TEXT NOT NULL,
-    FOREIGN KEY("MeshObjectID") REFERENCES "MeshObject"("ID")
-	PRIMARY KEY("ID")
+    FOREIGN KEY("MeshObjectId") REFERENCES "MeshObject"("Id")
+	PRIMARY KEY("Id")
 )"#;
 
 const CREATE_MATL_TABLE: &str = r#"CREATE TABLE "Matl" (
-	"ID"	INTEGER NOT NULL UNIQUE,
+	"Id"	INTEGER NOT NULL UNIQUE,
 	"FileName"	TEXT NOT NULL,
 	"Directory"	TEXT NOT NULL,
-	PRIMARY KEY("ID")
+	PRIMARY KEY("Id")
 )"#;
 
 const CREATE_MATERIAL_TABLE: &str = r#"CREATE TABLE "Material" (
-	"ID"	INTEGER NOT NULL UNIQUE,
-	"MatlID"	INTEGER NOT NULL,
+	"Id"	INTEGER NOT NULL UNIQUE,
+	"MatlId"	INTEGER NOT NULL,
 	"MaterialLabel"	TEXT NOT NULL,
     "ShaderLabel"	TEXT NOT NULL,
-    FOREIGN KEY("MatlID") REFERENCES "Matl"("ID")
-	PRIMARY KEY("ID")
+    FOREIGN KEY("MatlId") REFERENCES "Matl"("Id")
+	PRIMARY KEY("Id")
 )"#;
 
 const CREATE_VECTOR_TABLE: &str = r#"CREATE TABLE "CustomVectorParam" (
-	"ID"	INTEGER NOT NULL UNIQUE,
-	"ParamID"	INTEGER NOT NULL,
-	"MaterialID"	INTEGER NOT NULL,
-	"Value1"	REAL NOT NULL,
-	"Value2"	REAL NOT NULL,
-	"Value3"	REAL NOT NULL,
-    "Value4"	REAL NOT NULL,
-    FOREIGN KEY("MaterialID") REFERENCES "Material"("ID"),
-	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID")
-	PRIMARY KEY("ID")
+	"Id"	INTEGER NOT NULL UNIQUE,
+	"ParamId"	INTEGER NOT NULL,
+	"MaterialId"	INTEGER NOT NULL,
+	"X"	REAL NOT NULL,
+	"Y"	REAL NOT NULL,
+	"Z"	REAL NOT NULL,
+    "W"	REAL NOT NULL,
+    FOREIGN KEY("MaterialId") REFERENCES "Material"("Id"),
+	FOREIGN KEY("ParamId") REFERENCES "CustomParam"("Id")
+	PRIMARY KEY("Id")
 )"#;
 
 const CREATE_PARAM_TABLE: &str = r#"CREATE TABLE "CustomParam" (
-	"ID"	INTEGER NOT NULL UNIQUE,
+	"Id"	INTEGER NOT NULL UNIQUE,
 	"Name"	TEXT NOT NULL,
-	PRIMARY KEY("ID")
+	PRIMARY KEY("Id")
 )"#;
 
 const CREATE_FLOAT_TABLE: &str = r#"CREATE TABLE "CustomFloatParam" (
-	"ID"	INTEGER NOT NULL UNIQUE,
-	"ParamID"	INTEGER,
-	"MaterialID"	INTEGER NOT NULL,
+	"Id"	INTEGER NOT NULL UNIQUE,
+	"ParamId"	INTEGER,
+	"MaterialId"	INTEGER NOT NULL,
     "Value"	INTEGER NOT NULL,
-    FOREIGN KEY("MaterialID") REFERENCES "Material"("ID"),
-	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID")
-	PRIMARY KEY("ID")
+    FOREIGN KEY("MaterialId") REFERENCES "Material"("Id"),
+	FOREIGN KEY("ParamId") REFERENCES "CustomParam"("Id")
+	PRIMARY KEY("Id")
 )"#;
 
 const CREATE_BOOLEAN_TABLE: &str = r#"CREATE TABLE "CustomBooleanParam" (
-	"ID"	INTEGER NOT NULL UNIQUE,
-	"ParamID"	INTEGER NOT NULL,
-	"MaterialID"	INTEGER NOT NULL,
+	"Id"	INTEGER NOT NULL UNIQUE,
+	"ParamId"	INTEGER NOT NULL,
+	"MaterialId"	INTEGER NOT NULL,
     "Value"	INTEGER NOT NULL,
-    PRIMARY KEY("ID"),
-    FOREIGN KEY("MaterialID") REFERENCES "Material"("ID"),
-	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID")
+    PRIMARY KEY("Id"),
+    FOREIGN KEY("MaterialId") REFERENCES "Material"("Id"),
+	FOREIGN KEY("ParamId") REFERENCES "CustomParam"("Id")
 )"#;
 
 const CREATE_TEXTURE_TABLE: &str = r#"CREATE TABLE "Texture" (
-	"ID"	INTEGER NOT NULL UNIQUE,
-	"ParamID"	INTEGER NOT NULL,
-	"MaterialID"	INTEGER NOT NULL,
+	"Id"	INTEGER NOT NULL UNIQUE,
+	"ParamId"	INTEGER NOT NULL,
+	"MaterialId"	INTEGER NOT NULL,
     "Value"	TEXT,
-    FOREIGN KEY("MaterialID") REFERENCES "Material"("ID"),
-	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID"),
-	PRIMARY KEY("ID")
+    FOREIGN KEY("MaterialId") REFERENCES "Material"("Id"),
+	FOREIGN KEY("ParamId") REFERENCES "CustomParam"("Id"),
+	PRIMARY KEY("Id")
 )"#;
 
 const CREATE_BLENDSTATE_TABLE: &str = r#"CREATE TABLE "BlendState" (
-	"ID"	INTEGER NOT NULL UNIQUE,
-    "ParamID"	INTEGER NOT NULL,
-	"MaterialID"	INTEGER NOT NULL,
-	"Value1"	INTEGER NOT NULL,
-	"Value2"	INTEGER NOT NULL,
-	"Value3"	INTEGER NOT NULL,
-	"Value4"	INTEGER NOT NULL,
-	"Value5"	INTEGER NOT NULL,
-	"Value6"	INTEGER NOT NULL,
-	"Value7"	INTEGER NOT NULL,
-	"Value8"	INTEGER NOT NULL,
-	"Value9"	INTEGER NOT NULL,
-	"Value10"	INTEGER NOT NULL,
-	"Value11"	INTEGER NOT NULL,
-    "Value12"	INTEGER NOT NULL,
-    FOREIGN KEY("MaterialID") REFERENCES "Material"("ID"),
-	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID"),
-	PRIMARY KEY("ID")
+	"Id"	INTEGER NOT NULL UNIQUE,
+    "ParamId"	INTEGER NOT NULL,
+	"MaterialId"	INTEGER NOT NULL,
+	"Unk1"	INTEGER NOT NULL,
+	"Unk2"	INTEGER NOT NULL,
+	"BlendFactor1"	INTEGER NOT NULL,
+	"Unk4"	INTEGER NOT NULL,
+	"Unk5"	INTEGER NOT NULL,
+	"BlendFactor2"	INTEGER NOT NULL,
+	"Unk7"	INTEGER NOT NULL,
+	"Unk8"	INTEGER NOT NULL,
+	"Unk9"	INTEGER NOT NULL,
+	"Unk10"	INTEGER NOT NULL,
+	"Unk11"	INTEGER NOT NULL,
+    "Unk12"	INTEGER NOT NULL,
+    FOREIGN KEY("MaterialId") REFERENCES "Material"("Id"),
+	FOREIGN KEY("ParamId") REFERENCES "CustomParam"("Id"),
+	PRIMARY KEY("Id")
 )"#;
 
 const CREATE_RASTERIZERSTATE_TABLE: &str = r#"CREATE TABLE "RasterizerState" (
-	"ID"	INTEGER NOT NULL UNIQUE,
-    "ParamID"	INTEGER NOT NULL,
-	"MaterialID"	INTEGER NOT NULL,
-	"Value1"	INTEGER NOT NULL,
-	"Value2"	INTEGER NOT NULL,
-	"Value3"	REAL NOT NULL,
-	"Value4"	REAL NOT NULL,
-	"Value5"	REAL NOT NULL,
-	"Value6"	INTEGER NOT NULL,
-	"Value7"	INTEGER NOT NULL,
-    "Value8"	REAL NOT NULL,
-    FOREIGN KEY("MaterialID") REFERENCES "Material"("ID"),
-	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID"),
-	PRIMARY KEY("ID")
+	"Id"	INTEGER NOT NULL UNIQUE,
+    "ParamId"	INTEGER NOT NULL,
+	"MaterialId"	INTEGER NOT NULL,
+	"FillMode"	INTEGER NOT NULL,
+	"CullMode"	INTEGER NOT NULL,
+	"DepthBias"	REAL NOT NULL,
+	"Unk4"	REAL NOT NULL,
+	"Unk5"	REAL NOT NULL,
+	"Unk6"	INTEGER NOT NULL,
+	"Unk7"	INTEGER NOT NULL,
+    "Unk8"	REAL NOT NULL,
+    FOREIGN KEY("MaterialId") REFERENCES "Material"("Id"),
+	FOREIGN KEY("ParamId") REFERENCES "CustomParam"("Id"),
+	PRIMARY KEY("Id")
 )"#;
 
 const CREATE_SAMPLER_TABLE: &str = r#"CREATE TABLE "Sampler" (
-	"ID"	INTEGER NOT NULL UNIQUE,
-	"ParamID"	INTEGER NOT NULL,
-	"MaterialID"	INTEGER NOT NULL,
-	"Value1"	INTEGER NOT NULL,
-	"Value2"	INTEGER NOT NULL,
-	"Value3"	INTEGER NOT NULL,
-	"Value4"	INTEGER NOT NULL,
-	"Value5"	INTEGER NOT NULL,
-	"Value6"	INTEGER NOT NULL,
-	"Value7"	INTEGER NOT NULL,
-	"Value8"	INTEGER NOT NULL,
-	"Value9"	INTEGER NOT NULL,
-	"Value10"	INTEGER NOT NULL,
-	"Value11"	INTEGER NOT NULL,
-	"Value12"	INTEGER NOT NULL,
-	"Value13"	REAL NOT NULL,
-    "Value14"	INTEGER NOT NULL,
-    PRIMARY KEY("ID"),
-    FOREIGN KEY("MaterialID") REFERENCES "Material"("ID"),
-	FOREIGN KEY("ParamID") REFERENCES "CustomParam"("ID")
+	"Id"	INTEGER NOT NULL UNIQUE,
+	"ParamId"	INTEGER NOT NULL,
+	"MaterialId"	INTEGER NOT NULL,
+	"Wraps"	INTEGER NOT NULL,
+	"Wrapt"	INTEGER NOT NULL,
+	"Wrapr"	INTEGER NOT NULL,
+	"MinFilter"	INTEGER NOT NULL,
+	"MagFilter"	INTEGER NOT NULL,
+	"Unk6"	INTEGER NOT NULL,
+	"Unk7"	INTEGER NOT NULL,
+	"Unk8"	INTEGER NOT NULL,
+	"Unk9"	INTEGER NOT NULL,
+	"Unk10"	INTEGER NOT NULL,
+	"Unk11"	INTEGER NOT NULL,
+	"Unk12"	INTEGER NOT NULL,
+	"LodBias"	REAL NOT NULL,
+    "MaxAnisotropy"	INTEGER NOT NULL,
+    PRIMARY KEY("Id"),
+    FOREIGN KEY("MaterialId") REFERENCES "Material"("Id"),
+	FOREIGN KEY("ParamId") REFERENCES "CustomParam"("Id")
 )"#;
 
 fn create_tables(transaction: &mut Transaction) -> Result<()> {
@@ -584,7 +584,7 @@ fn create_tables(transaction: &mut Transaction) -> Result<()> {
 
 fn insert_custom_params(transaction: &Transaction) -> Result<()> {
     let mut statement =
-        transaction.prepare_cached("INSERT INTO CustomParam(ID,Name) VALUES(?,?)")?;
+        transaction.prepare_cached("INSERT INTO CustomParam(Id,Name) VALUES(?,?)")?;
 
     for i in 0..CUSTOM_PARAM_NAMES.len() {
         statement.execute(params![i as u32, CUSTOM_PARAM_NAMES[i]])?;
@@ -759,11 +759,11 @@ fn process_modl(
         directory_id,
         file_name.to_string(),
         modl.model_file_name.get_string().unwrap().to_string(),
+        modl.skeleton_file_name.get_string().unwrap().to_string(),
         modl.material_file_names.elements[0]
             .get_string()
             .unwrap()
             .to_string(),
-        modl.skeleton_file_name.get_string().unwrap().to_string(),
     )
     .1
 }
@@ -930,20 +930,20 @@ fn create_indexes(connection: &mut Connection) -> Result<()> {
 
     // Create indexes to optimize only the more commonly specified parameters.
     transaction.execute_batch(
-        "CREATE INDEX BlendState_MaterialID_Idx ON BlendState(MaterialID);
-        CREATE INDEX CustomBooleanParam_MaterialID_Idx ON CustomBooleanParam(MaterialID);
-        CREATE INDEX CustomFloatParam_MaterialID_Idx ON CustomFloatParam(MaterialID);
-        CREATE INDEX CustomVectorParam_MaterialID_Idx ON CustomVectorParam(MaterialID);
-        CREATE INDEX RasterizerState_MaterialID_Idx ON RasterizerState(MaterialID);
-        CREATE INDEX Sampler_MaterialID_Idx ON Sampler(MaterialID);
-        CREATE INDEX Texture_MaterialID_Idx ON Texture(MaterialID);
-        CREATE INDEX BlendState_ParamID_Idx ON BlendState(ParamID);
-        CREATE INDEX CustomBooleanParam_ParamID_Idx ON CustomBooleanParam(ParamID);
-        CREATE INDEX CustomFloatParam_ParamID_Idx ON CustomFloatParam(ParamID);
-        CREATE INDEX CustomVectorParam_ParamID_Idx ON CustomVectorParam(ParamID);
-        CREATE INDEX RasterizerState_ParamID_Idx ON RasterizerState(ParamID);
-        CREATE INDEX Sampler_ParamID_Idx ON Sampler(ParamID);
-        CREATE INDEX Texture_ParamID_Idx ON Texture(ParamID);",
+        "CREATE INDEX BlendState_MaterialId_Idx ON BlendState(MaterialId);
+        CREATE INDEX CustomBooleanParam_MaterialId_Idx ON CustomBooleanParam(MaterialId);
+        CREATE INDEX CustomFloatParam_MaterialId_Idx ON CustomFloatParam(MaterialId);
+        CREATE INDEX CustomVectorParam_MaterialId_Idx ON CustomVectorParam(MaterialId);
+        CREATE INDEX RasterizerState_MaterialId_Idx ON RasterizerState(MaterialId);
+        CREATE INDEX Sampler_MaterialId_Idx ON Sampler(MaterialId);
+        CREATE INDEX Texture_MaterialId_Idx ON Texture(MaterialId);
+        CREATE INDEX BlendState_ParamId_Idx ON BlendState(ParamId);
+        CREATE INDEX CustomBooleanParam_ParamId_Idx ON CustomBooleanParam(ParamId);
+        CREATE INDEX CustomFloatParam_ParamId_Idx ON CustomFloatParam(ParamId);
+        CREATE INDEX CustomVectorParam_ParamId_Idx ON CustomVectorParam(ParamId);
+        CREATE INDEX RasterizerState_ParamId_Idx ON RasterizerState(ParamId);
+        CREATE INDEX Sampler_ParamId_Idx ON Sampler(ParamId);
+        CREATE INDEX Texture_ParamId_Idx ON Texture(ParamId);",
     )?;
 
     transaction.commit()
