@@ -600,8 +600,8 @@ fn process_matl(
     records.push(Box::new(matl_record));
 
     for entry in &matl.entries.elements {
-        let material_label = entry.material_label.get_string().unwrap();
-        let shader_label = entry.shader_label.get_string().unwrap();
+        let material_label = entry.material_label.to_string_lossy();
+        let shader_label = entry.shader_label.to_string_lossy();
 
         let (material_id, material_record) = MaterialRecord::create_record(
             matl_id,
@@ -640,7 +640,7 @@ fn process_matl(
                             ));
                         }
                         ssbh_lib::formats::matl::Param::MatlString(val) => {
-                            let text = val.get_string().unwrap().to_string();
+                            let text = val.to_string_lossy().to_string();
                             records.push(Box::new(
                                 TextureRecord::create_record(param_id, material_id, text).1,
                             ));
@@ -725,7 +725,7 @@ fn process_mesh(
     records.push(Box::new(mesh_record));
 
     for object in &mesh.objects.elements {
-        let mesh_name = object.name.get_string().unwrap().to_string();
+        let mesh_name = object.name.to_string_lossy().to_string();
         let sub_index = object.sub_index;
 
         let (mesh_object_id, mesh_object_record) =
@@ -737,10 +737,7 @@ fn process_mesh(
         match &object.attributes {
             ssbh_lib::formats::mesh::MeshAttributes::AttributesV10(v) => {
                 for attribute in &v.elements {
-                    let attribute_name = attribute.attribute_names.elements[0]
-                        .get_string()
-                        .unwrap()
-                        .to_string();
+                    let attribute_name = attribute.attribute_names.elements[0].to_string_lossy();
                     records.push(Box::new(
                         MeshAttributeRecord::create_record(mesh_object_id, attribute_name).1,
                     ));
@@ -764,12 +761,9 @@ fn process_modl(
     ModlRecord::create_record(
         directory_id,
         file_name.to_string(),
-        modl.model_file_name.get_string().unwrap().to_string(),
-        modl.skeleton_file_name.get_string().unwrap().to_string(),
-        modl.material_file_names.elements[0]
-            .get_string()
-            .unwrap()
-            .to_string(),
+        modl.model_name.to_string_lossy(),
+        modl.skeleton_file_name.to_string_lossy(),
+        modl.material_file_names.elements[0].to_string_lossy(),
     )
     .1
 }
