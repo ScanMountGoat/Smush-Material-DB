@@ -7,6 +7,6 @@ A pregenerated database, python scripts for viewing/export the data from the dat
 
 # Usage 
 `smush_material_db.exe <source folder> <SQLite database output>`  
-`smush_material_db.exe "dump directory/root" smush_materials.db`
-`smush_material_db.exe "dump directory/root/items" items.db`
+`smush_material_db.exe "dump directory/root" smush_materials.db`  
+`smush_material_db.exe "dump directory/root/items" items.db`  
 
