@@ -582,8 +582,8 @@ fn insert_custom_params(transaction: &Transaction) -> Result<()> {
     let mut statement =
         transaction.prepare_cached("INSERT INTO CustomParam(Id,Name) VALUES(?,?)")?;
 
-    for i in 0..CUSTOM_PARAM_NAMES.len() {
-        statement.execute(params![i as u32, CUSTOM_PARAM_NAMES[i]])?;
+    for (i, name) in CUSTOM_PARAM_NAMES.iter().enumerate() {
+        statement.execute(params![i as u32, name])?;
     }
 
     Ok(())
@@ -614,100 +614,55 @@ fn process_matl(
             let param_id = attribute.param_id as u32;
 
             match &(*attribute.param.data) {
-                Some(data) => {
-                    match data {
-                        ssbh_lib::formats::matl::Param::Boolean(val) => {
-                            records.push(Box::new(
-                                BoolRecord::create_record(param_id, material_id, *val > 0).1,
-                            ));
-                        }
-                        ssbh_lib::formats::matl::Param::Float(val) => {
-                            records.push(Box::new(
-                                FloatRecord::create_record(param_id, material_id, *val as f64).1,
-                            ));
-                        }
-                        ssbh_lib::formats::matl::Param::Vector4(val) => {
-                            records.push(Box::new(
-                                Vector4Record::create_record(
-                                    param_id,
-                                    material_id,
-                                    val.x as f64,
-                                    val.y as f64,
-                                    val.z as f64,
-                                    val.w as f64,
-                                )
-                                .1,
-                            ));
-                        }
-                        ssbh_lib::formats::matl::Param::MatlString(val) => {
-                            let text = val.to_string_lossy().to_string();
-                            records.push(Box::new(
-                                TextureRecord::create_record(param_id, material_id, text).1,
-                            ));
-                        }
-                        ssbh_lib::formats::matl::Param::Sampler(val) => {
-                            records.push(Box::new(
-                                SamplerRecord::create_record(
-                                    param_id,
-                                    material_id,
-                                    val.wraps as u32,
-                                    val.wrapt as u32,
-                                    val.wrapr as u32,
-                                    val.min_filter as u32,
-                                    val.mag_filter as u32,
-                                    val.texture_filtering_type as u32,
-                                    val.border_color.r,
-                                    val.border_color.g,
-                                    val.border_color.b,
-                                    val.border_color.a,
-                                    val.unk11,
-                                    val.unk12,
-                                    val.lod_bias as f64,
-                                    val.max_anisotropy,
-                                )
-                                .1,
-                            ));
-                        }
-                        ssbh_lib::formats::matl::Param::BlendState(val) => {
-                            records.push(Box::new(
-                                BlendStateRecord::create_record(
-                                    param_id,
-                                    material_id,
-                                    val.source_color as u32,
-                                    val.unk2,
-                                    val.destination_color as u32,
-                                    val.unk4,
-                                    val.unk5,
-                                    val.unk6,
-                                    val.unk7,
-                                    val.unk8,
-                                    val.unk9,
-                                    val.unk10
-                                )
-                                .1,
-                            ));
-                        }
-                        ssbh_lib::formats::matl::Param::RasterizerState(val) => {
-                            records.push(Box::new(
-                                RasterizerRecord::create_record(
-                                    param_id,
-                                    material_id,
-                                    val.fill_mode as u32,
-                                    val.cull_mode as u32,
-                                    val.depth_bias as f64,
-                                    val.unk4 as f64,
-                                    val.unk5 as f64,
-                                    val.unk6,
-                                )
-                                .1,
-                            ));
-                        }
-                        _ => (),
+                Some(data) => match data {
+                    ssbh_lib::formats::matl::Param::Boolean(val) => {
+                        records.push(Box::new(
+                            BoolRecord::create_record(param_id, material_id, *val > 0).1,
+                        ));
                     }
-                }
-                None => ()
+                    ssbh_lib::formats::matl::Param::Float(val) => {
+                        records.push(Box::new(
+                            FloatRecord::create_record(param_id, material_id, *val as f64).1,
+                        ));
+                    }
+                    ssbh_lib::formats::matl::Param::Vector4(val) => {
+                        records.push(Box::new(
+                            Vector4Record::create_record(
+                                param_id,
+                                material_id,
+                                val.x as f64,
+                                val.y as f64,
+                                val.z as f64,
+                                val.w as f64,
+                            )
+                            .1,
+                        ));
+                    }
+                    ssbh_lib::formats::matl::Param::MatlString(val) => {
+                        let text = val.to_string_lossy().to_string();
+                        records.push(Box::new(
+                            TextureRecord::create_record(param_id, material_id, text).1,
+                        ));
+                    }
+                    ssbh_lib::formats::matl::Param::Sampler(val) => {
+                        records.push(Box::new(
+                            SamplerRecord::create_record(param_id, material_id, val).1,
+                        ));
+                    }
+                    ssbh_lib::formats::matl::Param::BlendState(val) => {
+                        records.push(Box::new(
+                            BlendStateRecord::create_record(param_id, material_id, val).1,
+                        ));
+                    }
+                    ssbh_lib::formats::matl::Param::RasterizerState(val) => {
+                        records.push(Box::new(
+                            RasterizerRecord::create_record(param_id, material_id, val).1,
+                        ));
+                    }
+                    _ => (),
+                },
+                None => (),
             }
-            
         }
     }
 
@@ -732,20 +687,16 @@ fn process_mesh(
             MeshObjectRecord::create_record(mesh_id, mesh_name, sub_index as i64);
         records.push(Box::new(mesh_object_record));
 
-        // Only version 1.10 has attribute names. 
+        // Only version 1.10 has attribute names.
         // There are a small number of 1.8 meshes, so ignore them for now.
-        match &object.attributes {
-            ssbh_lib::formats::mesh::MeshAttributes::AttributesV10(v) => {
-                for attribute in &v.elements {
-                    let attribute_name = attribute.attribute_names.elements[0].to_string_lossy();
-                    records.push(Box::new(
-                        MeshAttributeRecord::create_record(mesh_object_id, attribute_name).1,
-                    ));
-                }
+        if let ssbh_lib::formats::mesh::MeshAttributes::AttributesV10(v) = &object.attributes {
+            for attribute in &v.elements {
+                let attribute_name = attribute.attribute_names.elements[0].to_string_lossy();
+                records.push(Box::new(
+                    MeshAttributeRecord::create_record(mesh_object_id, attribute_name).1,
+                ));
             }
-            _ => ()
         }
-
     }
 
     records
@@ -828,23 +779,6 @@ fn get_directory(file_path: &Path, source_folder: &Path) -> String {
         .to_string()
 }
 
-// Convert to Option as a temporary workaround.
-// Box<dyn Error> won't work with par_iter.
-// TODO: Cleaner handling of errors.
-fn parse_ssbh(path: &Path) -> Option<ssbh_lib::Ssbh> {
-    match ssbh_lib::Ssbh::from_file(path) {
-        Ok(ssbh) => Some(ssbh),
-        Err(_) => None,
-    }
-}
-
-fn parse_xmb(path: &Path) -> Option<xmb_lib::XmbFile> {
-    match xmb_lib::read_xmb(path) {
-        Ok(xmb) => Some(xmb),
-        Err(_) => None,
-    }
-}
-
 fn get_records(file_path: &Path, source_folder: &Path) -> Vec<Box<dyn SqlInsert>> {
     let file_name = file_path.file_name().unwrap().to_str().unwrap();
     let extension = file_path.extension().unwrap().to_str().unwrap();
@@ -853,24 +787,20 @@ fn get_records(file_path: &Path, source_folder: &Path) -> Vec<Box<dyn SqlInsert>
 
     let directory = get_directory(file_path, source_folder);
 
-    // Assume files that are not XMB files are SSBH.
     match extension {
-        "xmb" => match parse_xmb(file_path) {
-            Some(xmb) => {
+        "xmb" => {
+            if let Ok(xmb) = xmb_lib::read_xmb(file_path) {
                 let mut xmb_records = process_xmb(file_name, &xmb, directory);
                 records.append(&mut xmb_records);
             }
-
-            None => {}
-        },
-        _ => match parse_ssbh(file_path) {
-            Some(ssbh) => {
+        }
+        // Assume files that are not XMB files are SSBH.
+        _ => {
+            if let Ok(ssbh) = ssbh_lib::Ssbh::from_file(file_path) {
                 let mut ssbh_records = process_ssbh(file_name, &ssbh, directory);
                 records.append(&mut ssbh_records);
             }
-
-            None => {}
-        },
+        }
     }
 
     records
@@ -953,7 +883,7 @@ fn initialize_database(connection: &mut Connection) -> Result<()> {
     let mut transaction = connection.transaction()?;
 
     create_tables(&mut transaction)?;
-    insert_custom_params(&mut transaction)?;
+    insert_custom_params(&transaction)?;
 
     transaction.commit()
 }

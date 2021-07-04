@@ -1,5 +1,6 @@
 use rusqlite::Transaction;
 use rusqlite::{params, Result};
+use ssbh_lib::formats::matl::{MatlBlendState, MatlRasterizerState, MatlSampler};
 use std::fmt::Debug;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
@@ -101,12 +102,7 @@ impl RasterizerRecord {
     pub fn create_record(
         param_id: u32,
         material_id: i64,
-        fill_mode: u32,
-        cull_mode: u32,
-        depth_bias: f64,
-        unk4: f64,
-        unk5: f64,
-        unk6: u32,
+        val: &MatlRasterizerState,
     ) -> (i64, RasterizerRecord) {
         let id = LAST_RASTERIZER_ID.fetch_add(1, Ordering::Relaxed) as i64;
         (
@@ -115,12 +111,12 @@ impl RasterizerRecord {
                 id,
                 param_id,
                 material_id,
-                fill_mode,
-                cull_mode,
-                depth_bias,
-                unk4,
-                unk5,
-                unk6,
+                fill_mode: val.fill_mode as u32,
+                cull_mode: val.cull_mode as u32,
+                depth_bias: val.depth_bias as f64,
+                unk4: val.unk4 as f64,
+                unk5: val.unk5 as f64,
+                unk6: val.unk6,
             },
         )
     }
@@ -148,16 +144,7 @@ impl BlendStateRecord {
     pub fn create_record(
         param_id: u32,
         material_id: i64,
-        source_color: u32,
-        unk2: u32,
-        destination_color: u32,
-        unk4: u32,
-        unk5: u32,
-        unk6: u32,
-        unk7: u32,
-        unk8: u32,
-        unk9: u32,
-        unk10: u32,
+        val: &MatlBlendState,
     ) -> (i64, BlendStateRecord) {
         let id = LAST_BLEND_STATE_ID.fetch_add(1, Ordering::Relaxed) as i64;
         (
@@ -166,16 +153,16 @@ impl BlendStateRecord {
                 id,
                 param_id,
                 material_id,
-                source_color,
-                unk2,
-                destination_color,
-                unk4,
-                unk5,
-                unk6,
-                unk7,
-                unk8,
-                unk9,
-                unk10,
+                source_color: val.source_color as u32,
+                unk2: val.unk2,
+                destination_color: val.destination_color as u32,
+                unk4: val.unk4,
+                unk5: val.unk5,
+                unk6: val.unk6,
+                unk7: val.unk7,
+                unk8: val.unk8,
+                unk9: val.unk9,
+                unk10: val.unk10,
             },
         )
     }
@@ -207,20 +194,7 @@ impl SamplerRecord {
     pub fn create_record(
         param_id: u32,
         material_id: i64,
-        wraps: u32,
-        wrapt: u32,
-        wrapr: u32,
-        min_filter: u32,
-        mag_filter: u32,
-        texture_filtering_type: u32,
-        border_color_r: f32,
-        border_color_g: f32,
-        border_color_b: f32,
-        border_color_a: f32,
-        unk11: u32,
-        unk12: u32,
-        lod_bias: f64,
-        max_anisotropy: u32,
+        val: &MatlSampler,
     ) -> (i64, SamplerRecord) {
         let id = LAST_SAMPLER_ID.fetch_add(1, Ordering::Relaxed) as i64;
         (
@@ -229,20 +203,20 @@ impl SamplerRecord {
                 id,
                 param_id,
                 material_id,
-                wraps,
-                wrapt,
-                wrapr,
-                min_filter,
-                mag_filter,
-                texture_filtering_type,
-                border_color_r: border_color_r as f64,
-                border_color_g: border_color_g as f64,
-                border_color_b: border_color_b as f64,
-                border_color_a: border_color_a as f64,
-                unk11,
-                unk12,
-                lod_bias,
-                max_anisotropy,
+                wraps: val.wraps as u32,
+                wrapt: val.wrapt as u32,
+                wrapr: val.wrapr as u32,
+                min_filter: val.min_filter as u32,
+                mag_filter: val.mag_filter as u32,
+                texture_filtering_type: val.texture_filtering_type as u32,
+                border_color_r: val.border_color.r as f64,
+                border_color_g: val.border_color.g as f64,
+                border_color_b: val.border_color.b as f64,
+                border_color_a: val.border_color.a as f64,
+                unk11: val.unk11,
+                unk12: val.unk12,
+                lod_bias: val.lod_bias as f64,
+                max_anisotropy: val.max_anisotropy,
             },
         )
     }
@@ -369,7 +343,6 @@ pub struct XmbRecord {
 
 impl XmbRecord {
     pub fn create_record(directory: String, file_name: String) -> (i64, XmbRecord) {
-        // TODO: change ordering to relaxed?
         let id = LAST_XMB_ID.fetch_add(1, Ordering::Relaxed) as i64;
         (
             id,
