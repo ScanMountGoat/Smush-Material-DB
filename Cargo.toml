@@ -13,3 +13,4 @@ globwalk = "0.8.0"
 rusqlite = { version = "0.24.0", features = ["bundled"] }
 rayon = "1.4.0"
 sqlinsert_derive = { path = "sqlinsert_derive" }
+clap = "2.33"

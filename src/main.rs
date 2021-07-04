@@ -1,17 +1,36 @@
+use clap::{App, Arg};
 use smush_material_db::create_database;
-use std::env;
 use std::fs;
 use std::path::Path;
 use std::time::Instant;
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    if args.len() != 3 {
-        println!("Usage: smush_material_db.exe <source folder> <output SQLite database>");
-        return;
-    }
-    let source_folder = Path::new(&args[1]);
-    let database_path = Path::new(&args[2]);
+    let matches = App::new("smush_material_db")
+        .version("0.1")
+        .author("SMG")
+        .about("Create an SQLite material database from SSBH and XMB files.")
+        .arg(
+            Arg::with_name("input")
+                .index(1)
+                .short("i")
+                .long("input")
+                .help("The source folder to search recursively for files")
+                .required(true)
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("output")
+                .index(2)
+                .short("o")
+                .long("output")
+                .help("The output SQLite database")
+                .required(true)
+                .takes_value(true),
+        )
+        .get_matches();
+
+    let source_folder = Path::new(matches.value_of("input").unwrap());
+    let database_path = Path::new(matches.value_of("output").unwrap());
 
     // Overwrite the file if it already exists.
     if database_path.exists() {
