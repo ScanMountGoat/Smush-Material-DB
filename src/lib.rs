@@ -610,58 +610,64 @@ fn process_matl(
         );
         records.push(Box::new(material_record));
 
-        for attribute in &entry.attributes.elements {
-            let param_id = attribute.param_id as u32;
+        match &entry.attributes {
+            ssbh_lib::formats::matl::MatlAttributes::Attributes15(_) => (), // Skip versions not used by Smash.
+            ssbh_lib::formats::matl::MatlAttributes::Attributes16(attributes) => {
+                for attribute in &attributes.elements {
+                    let param_id = attribute.param_id as u32;
 
-            match &(*attribute.param.data) {
-                Some(data) => match data {
-                    ssbh_lib::formats::matl::Param::Boolean(val) => {
-                        records.push(Box::new(
-                            BoolRecord::create_record(param_id, material_id, *val > 0).1,
-                        ));
+                    match attribute.param.data.as_ref() {
+                        Some(data) => match data {
+                            ssbh_lib::formats::matl::ParamV16::Boolean(val) => {
+                                records.push(Box::new(
+                                    BoolRecord::create_record(param_id, material_id, *val > 0).1,
+                                ));
+                            }
+                            ssbh_lib::formats::matl::ParamV16::Float(val) => {
+                                records.push(Box::new(
+                                    FloatRecord::create_record(param_id, material_id, *val as f64)
+                                        .1,
+                                ));
+                            }
+                            ssbh_lib::formats::matl::ParamV16::Vector4(val) => {
+                                records.push(Box::new(
+                                    Vector4Record::create_record(
+                                        param_id,
+                                        material_id,
+                                        val.x as f64,
+                                        val.y as f64,
+                                        val.z as f64,
+                                        val.w as f64,
+                                    )
+                                    .1,
+                                ));
+                            }
+                            ssbh_lib::formats::matl::ParamV16::MatlString(val) => {
+                                let text = val.to_string_lossy().to_string();
+                                records.push(Box::new(
+                                    TextureRecord::create_record(param_id, material_id, text).1,
+                                ));
+                            }
+                            ssbh_lib::formats::matl::ParamV16::Sampler(val) => {
+                                records.push(Box::new(
+                                    SamplerRecord::create_record(param_id, material_id, &val).1,
+                                ));
+                            }
+                            ssbh_lib::formats::matl::ParamV16::BlendState(val) => {
+                                records.push(Box::new(
+                                    BlendStateRecord::create_record(param_id, material_id, &val).1,
+                                ));
+                            }
+                            ssbh_lib::formats::matl::ParamV16::RasterizerState(val) => {
+                                records.push(Box::new(
+                                    RasterizerRecord::create_record(param_id, material_id, &val).1,
+                                ));
+                            }
+                            _ => (),
+                        },
+                        None => (),
                     }
-                    ssbh_lib::formats::matl::Param::Float(val) => {
-                        records.push(Box::new(
-                            FloatRecord::create_record(param_id, material_id, *val as f64).1,
-                        ));
-                    }
-                    ssbh_lib::formats::matl::Param::Vector4(val) => {
-                        records.push(Box::new(
-                            Vector4Record::create_record(
-                                param_id,
-                                material_id,
-                                val.x as f64,
-                                val.y as f64,
-                                val.z as f64,
-                                val.w as f64,
-                            )
-                            .1,
-                        ));
-                    }
-                    ssbh_lib::formats::matl::Param::MatlString(val) => {
-                        let text = val.to_string_lossy().to_string();
-                        records.push(Box::new(
-                            TextureRecord::create_record(param_id, material_id, text).1,
-                        ));
-                    }
-                    ssbh_lib::formats::matl::Param::Sampler(val) => {
-                        records.push(Box::new(
-                            SamplerRecord::create_record(param_id, material_id, val).1,
-                        ));
-                    }
-                    ssbh_lib::formats::matl::Param::BlendState(val) => {
-                        records.push(Box::new(
-                            BlendStateRecord::create_record(param_id, material_id, val).1,
-                        ));
-                    }
-                    ssbh_lib::formats::matl::Param::RasterizerState(val) => {
-                        records.push(Box::new(
-                            RasterizerRecord::create_record(param_id, material_id, val).1,
-                        ));
-                    }
-                    _ => (),
-                },
-                None => (),
+                }
             }
         }
     }

@@ -1,6 +1,6 @@
 use rusqlite::Transaction;
 use rusqlite::{params, Result};
-use ssbh_lib::formats::matl::{MatlBlendState, MatlRasterizerState, MatlSampler};
+use ssbh_lib::formats::matl::{MatlBlendStateV16, MatlRasterizerStateV16, MatlSampler};
 use std::fmt::Debug;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
@@ -102,7 +102,7 @@ impl RasterizerRecord {
     pub fn create_record(
         param_id: u32,
         material_id: i64,
-        val: &MatlRasterizerState,
+        val: &MatlRasterizerStateV16,
     ) -> (i64, RasterizerRecord) {
         let id = LAST_RASTERIZER_ID.fetch_add(1, Ordering::Relaxed) as i64;
         (
@@ -144,7 +144,7 @@ impl BlendStateRecord {
     pub fn create_record(
         param_id: u32,
         material_id: i64,
-        val: &MatlBlendState,
+        val: &MatlBlendStateV16,
     ) -> (i64, BlendStateRecord) {
         let id = LAST_BLEND_STATE_ID.fetch_add(1, Ordering::Relaxed) as i64;
         (
