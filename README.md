@@ -5,8 +5,11 @@ The program will attempt to parse all `.numatb`, `.numdlb`, `.numshb`, and `.xmb
 
 A pregenerated database, python scripts for viewing/export the data from the database, and various value dumps can be found in [Smush-Material-Research](https://github.com/ScanMountGoat/Smush-Material-Research).
 
-# Usage 
+## Usage 
 `smush_material_db.exe <source folder> <SQLite database output>`  
 `smush_material_db.exe "dump directory/root" smush_materials.db`  
 `smush_material_db.exe "dump directory/root/items" items.db`  
+
+## Building
+`cargo build --release`  
 
