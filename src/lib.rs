@@ -1,6 +1,6 @@
 use rayon::prelude::*;
 use rusqlite::Transaction;
-use rusqlite::{params, Connection, Result, NO_PARAMS};
+use rusqlite::{params, Connection, Result};
 use std::path::Path;
 use std::time::Instant;
 
@@ -557,23 +557,23 @@ const CREATE_SAMPLER_TABLE: &str = r#"CREATE TABLE "Sampler" (
 )"#;
 
 fn create_tables(transaction: &mut Transaction) -> Result<()> {
-    transaction.execute(CREATE_PARAM_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_MODL_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_MESH_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_MESH_OBJECT_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_MESH_ATTRIBUTE_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_MATL_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_XMB_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_XMB_ENTRY_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_XMB_ATTRIBUTE_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_MATERIAL_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_VECTOR_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_FLOAT_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_BOOLEAN_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_TEXTURE_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_BLENDSTATE_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_RASTERIZERSTATE_TABLE, NO_PARAMS)?;
-    transaction.execute(CREATE_SAMPLER_TABLE, NO_PARAMS)?;
+    transaction.execute(CREATE_PARAM_TABLE, [])?;
+    transaction.execute(CREATE_MODL_TABLE, [])?;
+    transaction.execute(CREATE_MESH_TABLE, [])?;
+    transaction.execute(CREATE_MESH_OBJECT_TABLE, [])?;
+    transaction.execute(CREATE_MESH_ATTRIBUTE_TABLE, [])?;
+    transaction.execute(CREATE_MATL_TABLE, [])?;
+    transaction.execute(CREATE_XMB_TABLE, [])?;
+    transaction.execute(CREATE_XMB_ENTRY_TABLE, [])?;
+    transaction.execute(CREATE_XMB_ATTRIBUTE_TABLE, [])?;
+    transaction.execute(CREATE_MATERIAL_TABLE, [])?;
+    transaction.execute(CREATE_VECTOR_TABLE, [])?;
+    transaction.execute(CREATE_FLOAT_TABLE, [])?;
+    transaction.execute(CREATE_BOOLEAN_TABLE, [])?;
+    transaction.execute(CREATE_TEXTURE_TABLE, [])?;
+    transaction.execute(CREATE_BLENDSTATE_TABLE, [])?;
+    transaction.execute(CREATE_RASTERIZERSTATE_TABLE, [])?;
+    transaction.execute(CREATE_SAMPLER_TABLE, [])?;
 
     Ok(())
 }
